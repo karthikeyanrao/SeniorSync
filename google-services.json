@@ -1,0 +1,90 @@
+{
+  "project_info": {
+    "project_number": "1063588914429",
+    "project_id": "seniorsync-4dca0",
+    "storage_bucket": "seniorsync-4dca0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1063588914429:android:d2d5143c4d13a0db1a8a94",
+        "android_client_info": {
+          "package_name": "com.company.seniorsync"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1063588914429-a5sej4dv5k4aetelj0kr3akj8aac11jh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.company.seniorsync",
+            "certificate_hash": "611d727264d2dd7bcdb4548277be40c50d5ba37e"
+          }
+        },
+        {
+          "client_id": "1063588914429-9lota9mjlpkdf8n1bt6urnsrd191jo3f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA3nAq4UZcew6z5lwLBvtPaVs-8ZFopmYc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1063588914429-9lota9mjlpkdf8n1bt6urnsrd191jo3f.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1063588914429-v79qk3kp0c3gqkvisdajesevd0it4o42.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.seniorsync"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1063588914429:android:209cfdfafd204c8b1a8a94",
+        "android_client_info": {
+          "package_name": "com.example.seniorsync"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1063588914429-9lota9mjlpkdf8n1bt6urnsrd191jo3f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA3nAq4UZcew6z5lwLBvtPaVs-8ZFopmYc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1063588914429-9lota9mjlpkdf8n1bt6urnsrd191jo3f.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1063588914429-v79qk3kp0c3gqkvisdajesevd0it4o42.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.seniorsync"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

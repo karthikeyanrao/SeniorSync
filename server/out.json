@@ -1,0 +1,21 @@
+[
+  {
+    "_id": "69b856ec5c061b7ddfb9bc44",
+    "firebaseUid": "mHRmo8i2SUPn3gYmoUqAzoZEn2k1",
+    "name": "Karthi",
+    "email": "testing@gmail.com",
+    "age": 20,
+    "conditions": [
+      "Diabetes",
+      "Hypertension"
+    ],
+    "role": "senior",
+    "pairingCode": "SENIOR-123",
+    "caregivers": [
+      "dummy_caregiver_uid"
+    ],
+    "linkedSeniors": [],
+    "createdAt": "2026-03-16T19:15:56.480Z",
+    "__v": 0
+  }
+]

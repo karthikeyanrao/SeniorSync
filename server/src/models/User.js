@@ -1,0 +1,47 @@
+
+const mongoose = require('mongoose');
+
+const userSchema = new mongoose.Schema({
+  firebaseUid: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  name: {
+    type: String,
+    required: true,
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  age: Number,
+  conditions: [String],
+  role: {
+    type: String,
+    enum: ['senior', 'caregiver'],
+    default: 'senior',
+  },
+  pairingCode: {
+    type: String,
+    sparse: true,
+    unique: true,
+  },
+  caregivers: [String], // Array of caregiver firebaseUids
+  linkedSeniors: [String], // Array of senior firebaseUids
+  refreshToken: {
+    type: String,
+    sparse: true,
+  },
+  fcmToken: {
+    type: String,
+    sparse: true,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+module.exports = mongoose.model('User', userSchema);

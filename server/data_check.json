@@ -1,0 +1,110 @@
+{
+  "medications": [
+    {
+      "timeOfDay": {
+        "hour": 8,
+        "minute": 0
+      },
+      "_id": "69b856ec5c061b7ddfb9bc46",
+      "userId": "mHRmo8i2SUPn3gYmoUqAzoZEn2k1",
+      "name": "Lisinopril",
+      "dosage": "10mg",
+      "status": "taken",
+      "lastUpdated": "2026-03-16T19:15:56.575Z",
+      "__v": 0
+    },
+    {
+      "timeOfDay": {
+        "hour": 13,
+        "minute": 0
+      },
+      "_id": "69b856ec5c061b7ddfb9bc47",
+      "userId": "mHRmo8i2SUPn3gYmoUqAzoZEn2k1",
+      "name": "Metformin",
+      "dosage": "500mg",
+      "status": "scheduled",
+      "lastUpdated": "2026-03-16T19:15:56.575Z",
+      "__v": 0
+    },
+    {
+      "timeOfDay": {
+        "hour": 20,
+        "minute": 0
+      },
+      "_id": "69b856ec5c061b7ddfb9bc48",
+      "userId": "mHRmo8i2SUPn3gYmoUqAzoZEn2k1",
+      "name": "Atorvastatin",
+      "dosage": "20mg",
+      "status": "scheduled",
+      "lastUpdated": "2026-03-16T19:15:56.576Z",
+      "__v": 0
+    }
+  ],
+  "vitals": [
+    {
+      "_id": "69b856ec5c061b7ddfb9bc4a",
+      "userId": "mHRmo8i2SUPn3gYmoUqAzoZEn2k1",
+      "bloodPressure": "125/80",
+      "heartRate": 72,
+      "bloodSugar": 110,
+      "timestamp": "2026-03-16T19:15:56.673Z",
+      "__v": 0
+    },
+    {
+      "_id": "69b856ec5c061b7ddfb9bc4b",
+      "userId": "mHRmo8i2SUPn3gYmoUqAzoZEn2k1",
+      "bloodPressure": "130/82",
+      "heartRate": 75,
+      "bloodSugar": 105,
+      "timestamp": "2026-03-15T19:15:56.674Z",
+      "__v": 0
+    }
+  ],
+  "routines": [
+    {
+      "time": {
+        "hour": 7,
+        "minute": 30
+      },
+      "_id": "69b856ec5c061b7ddfb9bc4d",
+      "userId": "mHRmo8i2SUPn3gYmoUqAzoZEn2k1",
+      "title": "Morning Walk",
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
+      "isCompletedToday": true,
+      "lastCompletedDate": "2026-03-16T19:15:56.763Z",
+      "streak": 5,
+      "createdAt": "2026-03-16T19:15:56.764Z",
+      "__v": 0
+    },
+    {
+      "time": {
+        "hour": 10,
+        "minute": 0
+      },
+      "_id": "69b856ec5c061b7ddfb9bc4e",
+      "userId": "mHRmo8i2SUPn3gYmoUqAzoZEn2k1",
+      "title": "Drink Water - 1st Liter",
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
+      "isCompletedToday": false,
+      "streak": 2,
+      "createdAt": "2026-03-16T19:15:56.764Z",
+      "__v": 0
+    }
+  ]
+}
