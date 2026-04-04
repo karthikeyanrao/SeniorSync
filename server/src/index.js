@@ -59,13 +59,15 @@ async function connectDB() {
   }
 
   if (!connCache.promise) {
+    const uri = process.env.MONGODB_URI;
     connCache.promise = mongoose
-      .connect(process.env.MONGODB_URI, {
-        serverSelectionTimeoutMS: 10000,
+      .connect(uri, {
+        serverSelectionTimeoutMS: 20000,
         socketTimeoutMS: 45000,
-        connectTimeoutMS: 10000,
-        maxPoolSize: 10,
-        bufferCommands: false,
+        connectTimeoutMS: 20000,
+        maxPoolSize: 5,
+        // Buffer until connected — avoids 503 when readyState lags one tick after connect resolves on serverless
+        bufferCommands: true,
       })
       .then(() => {
         console.log('Connected to MongoDB ✅');
@@ -83,11 +85,6 @@ async function connectDB() {
     console.error('MongoDB connection error:', err);
     throw err;
   }
-
-  if (mongoose.connection.readyState !== 1) {
-    connCache.promise = null;
-    throw new Error('MongoDB connection not ready after connect');
-  }
 }
 
 // Connect immediately on boot and also ensure connected on each request
@@ -95,14 +92,23 @@ connectDB();
 
 // Middleware to ensure DB is connected before any route that needs it
 app.use(async (req, res, next) => {
-  // Skip for ping/health checks so they never block
   if (req.path === '/api/health/ping') return next();
-  try {
+  const run = async () => {
     await connectDB();
     next();
+  };
+  try {
+    await run();
   } catch (err) {
-    console.error('[DB] Connection failed:', err.message);
-    res.status(503).json({ error: 'Database unavailable, please retry.' });
+    console.warn('[DB] First connect attempt failed:', err.message);
+    try {
+      await new Promise((r) => setTimeout(r, 200));
+      connCache.promise = null;
+      await run();
+    } catch (err2) {
+      console.error('[DB] Connection failed:', err2.message);
+      res.status(503).json({ error: 'Database unavailable, please retry.' });
+    }
   }
 });
 

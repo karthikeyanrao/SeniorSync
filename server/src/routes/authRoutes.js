@@ -267,7 +267,8 @@ router.post('/pair/code', async (req, res) => {
       { $addToSet: { linkedSeniors: senior.firebaseUid } }
     );
 
-    // Clear code after use
+    // Clear code after use (no pre-save hook — keep caregivers valid for save)
+    if (!Array.isArray(senior.caregivers)) senior.caregivers = [];
     senior.pairingCode = null;
     senior.pairingCodeExpires = null;
     await senior.save();
