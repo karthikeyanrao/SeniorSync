@@ -9,6 +9,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust Vercel's proxy for Rate Limiting
+app.set('trust proxy', 1);
+
 // Global Rate Limiting (BR-Security)
 const rateLimit = require('express-rate-limit');
 const limiter = rateLimit({
@@ -16,6 +19,7 @@ const limiter = rateLimit({
   max: 500, // Increased from 100 — app makes many requests per session
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
 });
 app.use(limiter);
 
