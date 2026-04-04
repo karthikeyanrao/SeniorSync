@@ -14,6 +14,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
+  final _confirmPassCtrl = TextEditingController();
   bool _isLogin = true;
 
   @override
@@ -56,6 +57,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 style: const TextStyle(fontSize: 18),
               ),
+              if (!_isLogin) ...[
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _confirmPassCtrl,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: "Confirm Password",
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    prefixIcon: const Icon(Icons.lock_reset),
+                  ),
+                  style: const TextStyle(fontSize: 18),
+                ),
+              ],
               const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
@@ -66,6 +80,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       if (_isLogin) {
                         await auth.signIn(_emailCtrl.text, _passCtrl.text);
                       } else {
+                        if (_passCtrl.text != _confirmPassCtrl.text) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Passwords do not match.")));
+                          return;
+                        }
                         await auth.signUp(_emailCtrl.text, _passCtrl.text);
                       }
                     } catch (e) {

@@ -22,6 +22,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   late TextEditingController _dosageController;
   late TextEditingController _notesController;
   late TimeOfDay _timeOfDay;
+  String _medicineType = 'Tablet';
+  late TextEditingController _customTypeController;
+  String _foodTiming = 'After Food';
   bool _isSaving = false;
 
   @override
@@ -31,6 +34,14 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     _dosageController = TextEditingController(text: widget.initialMedication?.dosage ?? '');
     _timeOfDay = widget.initialMedication?.timeOfDay ?? const TimeOfDay(hour: 8, minute: 0);
     _notesController = TextEditingController(text: widget.initialMedication?.notes ?? '');
+    _medicineType = widget.initialMedication?.medicineType ?? 'Tablet';
+    _foodTiming = widget.initialMedication?.foodTiming ?? 'After Food';
+    _customTypeController = TextEditingController(
+      text: !['Tablet', 'Syrup'].contains(_medicineType) ? _medicineType : '',
+    );
+    if (!['Tablet', 'Syrup'].contains(_medicineType)) {
+      _medicineType = 'Other';
+    }
   }
 
   @override
@@ -38,6 +49,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     _nameController.dispose();
     _dosageController.dispose();
     _notesController.dispose();
+    _customTypeController.dispose();
     super.dispose();
   }
 
@@ -68,7 +80,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       initialTime: _timeOfDay,
     );
     if (picked != null) {
-      setState(() => _timeOfDay = picked);
+      setState(() {
+        _timeOfDay = picked;
+      });
     }
   }
 
@@ -88,6 +102,8 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         timeOfDay: _timeOfDay,
         notes: _notesController.text.trim(),
         status: widget.initialMedication?.status ?? MedicationStatus.scheduled,
+        foodTiming: _foodTiming,
+        medicineType: _medicineType == 'Other' ? _customTypeController.text.trim() : _medicineType,
       );
 
       if (widget.initialMedication == null) {
@@ -147,16 +163,65 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                 validator: (v) => v == null || v.isEmpty ? "Required" : null,
               ),
               const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: _medicineType,
+                decoration: InputDecoration(
+                  labelText: "Medicine Type",
+                  prefixIcon: const Icon(Icons.category),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  fillColor: Colors.white,
+                  filled: true,
+                ),
+                items: ['Tablet', 'Syrup', 'Other']
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (v) => setState(() {
+                  _medicineType = v!;
+                  _dosageController.clear();
+                }),
+              ),
+              if (_medicineType == 'Other') ...[
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _customTypeController,
+                  decoration: InputDecoration(
+                    labelText: "Custom Medicine Type",
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    fillColor: Colors.white,
+                    filled: true,
+                  ),
+                  validator: (v) => v == null || v.isEmpty ? "Required" : null,
+                ),
+              ],
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _dosageController,
-                decoration: const InputDecoration(
-                  labelText: "Dosage (e.g., 10mg, 1 tablet)",
-                  prefixIcon: Icon(Icons.format_list_numbered),
-                  border: OutlineInputBorder(),
+                keyboardType: _medicineType == 'Other' ? TextInputType.text : TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: _medicineType == 'Syrup' ? "Dosage in ml" : (_medicineType == 'Tablet' ? "Quantity (e.g. 1)" : "Dosage amount"),
+                  prefixIcon: const Icon(Icons.format_list_numbered),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   fillColor: Colors.white,
                   filled: true,
                 ),
                 validator: (v) => v == null || v.isEmpty ? "Required" : null,
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: _foodTiming,
+                decoration: InputDecoration(
+                  labelText: "Food Timing",
+                  prefixIcon: const Icon(Icons.restaurant),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  fillColor: Colors.white,
+                  filled: true,
+                ),
+                items: ['Before Food', 'After Food', 'None']
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (v) {
+                  setState(() => _foodTiming = v!);
+                },
               ),
               const SizedBox(height: 16),
               ListTile(

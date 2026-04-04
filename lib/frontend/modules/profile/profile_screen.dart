@@ -242,14 +242,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (caregivers.isEmpty)
           const Text("No caregivers linked yet.", style: SeniorStyles.cardSubtitle)
         else
-          ...caregivers.map((c) => Card(
-                child: ListTile(
-                  leading: const Icon(Icons.shield_outlined, color: SeniorStyles.successGreen),
-                  title: Text(c),
-                  subtitle: const Text("Linked via UID"),
+          ...caregivers.map((c) {
+            final String caregiverUid = c is String ? c : (c['uid'] ?? 'Unknown');
+            final String perm = c is String ? 'admin' : (c['permissionLevel'] ?? 'admin');
+            return Card(
+              child: ListTile(
+                leading: const Icon(Icons.shield_outlined, color: SeniorStyles.successGreen),
+                title: Text(caregiverUid, style: const TextStyle(fontSize: 14)),
+                subtitle: Text("Permissions: ${perm.toUpperCase()}", style: const TextStyle(fontSize: 12)),
+                trailing: IconButton(
+                  icon: const Icon(Icons.link_off, color: SeniorStyles.alertRed),
+                  onPressed: () => _showUnlinkConfirmation(context, auth, caregiverUid),
                 ),
-              )),
+              ),
+            );
+          }),
       ],
+    );
+  }
+
+  void _showUnlinkConfirmation(BuildContext context, AuthService auth, String caregiverUid) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Unlink Caregiver?"),
+        content: Text("Are you sure you want to remove caregiver: $caregiverUid? They will no longer receive your SOS alerts or medication updates."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await auth.unlinkCaregiver(caregiverUid);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Caregiver unlinked!")));
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Unlinking failed: $e")));
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: SeniorStyles.alertRed, foregroundColor: Colors.white),
+            child: const Text("Unlink"),
+          ),
+        ],
+      ),
     );
   }
 

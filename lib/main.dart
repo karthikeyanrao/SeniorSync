@@ -10,6 +10,7 @@ import 'firebase_options.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'backend/modules/shared/api_client.dart';
+import 'backend/modules/shared/notification_service.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -33,21 +34,41 @@ void main() async {
     sound: true,
   );
 
-  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+    print('Foreground Message Received: ${message.data}');
+    
+    // If it has a notification object, show it locally using our service
     if (message.notification != null) {
-      print('Foreground Notification: ${message.notification?.title}');
+      await NotificationService().showImmediate(
+        id: DateTime.now().millisecond,
+        title: message.notification?.title ?? 'Notification',
+        body: message.notification?.body ?? '',
+        // If it's an SOS, use red color
+        color: message.data['type'] == 'SOS_ALERT' ? const Color(0xFFF44336) : const Color(0xFF2196F3),
+      );
     }
+  });
+
+  // Handle when app is opened from a notification
+  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+    print('App opened from notification: ${message.data}');
+    // Navigation logic could go here if needed
   });
   
   // Initialize Offline Capabilities
   await Hive.initFlutter();
   await ApiClient.initOfflineBoxes();
 
-  // Listen for Internet Restoration
+  ConnectivityResult? _lastResult;
   Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
     if (results.isNotEmpty && results.first != ConnectivityResult.none) {
-      print('🌐 Network Restored — Syncing Offline Queue...');
-      ApiClient.syncOfflineQueue();
+      if (_lastResult != results.first) {
+        print('🌐 Network Restored — Syncing Offline Queue...');
+        ApiClient.syncOfflineQueue();
+        _lastResult = results.first;
+      }
+    } else {
+      _lastResult = ConnectivityResult.none;
     }
   });
 

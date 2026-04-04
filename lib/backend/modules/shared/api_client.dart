@@ -3,16 +3,44 @@ import 'package:http/http.dart' as http;
 import 'package:seniorsync/shared/constants.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:seniorsync/firebase_options.dart';
+import 'package:seniorsync/backend/modules/shared/notification_service.dart';
+
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Show a local notification even when app is closed
+  if (message.notification != null) {
+    await NotificationService().showImmediate(
+      id: DateTime.now().millisecond,
+      title: message.notification?.title ?? 'Alert',
+      body: message.notification?.body ?? '',
+    );
+  }
+  print("Background message received: ${message.messageId}");
+}
 
 /// Centralized API client with timeouts, error handling, and logging.
 class ApiClient {
   static const Duration _timeout = Duration(seconds: 5); // Shorter timeout to fall back to cache quickly
   static late Box _cacheBox;
   static late Box _queueBox;
+  static bool _isSyncing = false;
 
   static Future<void> initOfflineBoxes() async {
     _cacheBox = await Hive.openBox('api_cache');
     _queueBox = await Hive.openBox('offline_queue');
+    
+    // Automatically erase cache to keep app size minimum
+    // Reduce threshold to keep cache small (max 10 entries)
+    if (_cacheBox.length > 10) {
+      // Remove the oldest entry (LRU approximation)
+      final oldestKey = _cacheBox.keys.first;
+      print('[API] Cache size threshold reached. Removing oldest entry: $oldestKey');
+      await _cacheBox.delete(oldestKey);
+    }
+    
     syncOfflineQueue(); // Fire off sync queue when app boots
   }
 
@@ -113,9 +141,10 @@ class ApiClient {
 
   /// Background Daemon to drain the mutation queue
   static Future<void> syncOfflineQueue() async {
-    if (_queueBox.isEmpty) return;
+    if (_isSyncing || _queueBox.isEmpty) return;
+    _isSyncing = true;
 
-    print('[API/SYNC] Attempting to sync ${_queueBox.length} queued operations...');
+    print('[API/SYNC] Starting background sync process...');
     
     // We fetch current items to prevent iterating over newly added items during sync
     final keys = _queueBox.keys.toList();
@@ -149,8 +178,8 @@ class ApiClient {
         // Stop sync on first network error to maintain order
         print('[API/SYNC] Sync aborted due to network failure: $e');
         break;
-      }
     }
-    print('[API/SYNC] Sync queue currently has ${_queueBox.length} items left.');
+    _isSyncing = false;
+    print('[API/SYNC] Background sync process completed.');
   }
 }

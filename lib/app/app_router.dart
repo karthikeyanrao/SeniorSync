@@ -11,6 +11,8 @@ import '../frontend/modules/profile/login_screen.dart';
 import '../frontend/modules/sos/sos_screen.dart';
 import '../frontend/modules/caregiver/caregiver_dashboard.dart';
 import '../frontend/modules/health/wellness_screen.dart';
+import '../frontend/modules/profile/onboarding_screen.dart';
+import '../frontend/modules/dashboard/senior_dashboard_screen.dart';
 import 'package:local_auth/local_auth.dart';
 
 class AppRouter extends StatefulWidget {
@@ -126,6 +128,11 @@ class _AppRouterState extends State<AppRouter> {
       return const LoginScreen();
     }
 
+    // If user is authenticated but not onboarded natively or locally, force Onboarding Screen
+    if (auth.dbUser != null && auth.dbUser!['onboarded'] != true && !auth.hasOnboardedLocally) {
+      return const OnboardingScreen();
+    }
+
     // Show daily tip once per session after login
     if (!_tipShown && auth.dbUser != null) {
       _tipShown = true;
@@ -164,7 +171,7 @@ class _AppRouterState extends State<AppRouter> {
 
     final activeScreens = isCaregiver 
       ? [const CaregiverDashboard(), const ProfileScreen()]
-      : [const MedicationScreen(), const HealthScreen(), const SOSScreen(), const RoutineScreen(), const WellnessScreen(), const ProfileScreen()];
+      : [const SeniorDashboardScreen(), const MedicationScreen(), const HealthScreen(), const SOSScreen(), const RoutineScreen(), const WellnessScreen(), const ProfileScreen()];
 
     // Ensure index doesn't go out of bounds when switching roles
     if (index >= activeScreens.length) {
@@ -195,6 +202,7 @@ class _AppRouterState extends State<AppRouter> {
                   NavigationDestination(icon: Icon(Icons.person, size: 30), label: "Profile"),
                 ]
               : const [
+                  NavigationDestination(icon: Icon(Icons.dashboard_rounded, size: 30), label: "Home"),
                   NavigationDestination(icon: Icon(Icons.medication, size: 30), label: "Meds"),
                   NavigationDestination(icon: Icon(Icons.favorite, size: 30), label: "Health"),
                   NavigationDestination(

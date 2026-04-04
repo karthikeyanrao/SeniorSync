@@ -1,7 +1,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import 'package:seniorsync/backend/modules/medication/medication_model.dart';
 import 'package:seniorsync/backend/modules/medication/medication_service.dart';
 import 'package:seniorsync/backend/modules/profile/auth_service.dart';
@@ -34,16 +33,16 @@ class _MedicationScreenState extends State<MedicationScreen> with SingleTickerPr
   }
 
   Future<void> _loadMedications() async {
-    setState(() => _isLoading = true);
+    if (mounted) setState(() => _isLoading = true);
     try {
       final meds = await _medService.fetchMedications();
-      setState(() => _medications = meds);
+      if (mounted) setState(() => _medications = meds);
       // Reschedule all local notifications whenever list is refreshed
       await _scheduleAllMedReminders(meds);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -67,9 +66,30 @@ class _MedicationScreenState extends State<MedicationScreen> with SingleTickerPr
   }
 
   Future<void> _updateStatus(Medication med, MedicationStatus status) async {
+    String? reason;
+    if (status == MedicationStatus.skipped) {
+      reason = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("Why are you skipping?"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _reasonTile("Not feeling well", (v) => Navigator.pop(context, v)),
+              _reasonTile("Feeling nauseous", (v) => Navigator.pop(context, v)),
+              _reasonTile("Already took it", (v) => Navigator.pop(context, v)),
+              _reasonTile("Doctor's instruction", (v) => Navigator.pop(context, v)),
+              _reasonTile("Other", (v) => Navigator.pop(context, v)),
+            ],
+          ),
+        ),
+      );
+      if (reason == null) return; // User cancelled
+    }
+
     final index = _medications.indexWhere((m) => m.id == med.id);
     if (index == -1) return;
-    final updated = med.copyWith(status: status);
+    final updated = med.copyWith(status: status, skippedReason: reason);
     
     setState(() => _medications[index] = updated);
 
@@ -81,8 +101,18 @@ class _MedicationScreenState extends State<MedicationScreen> with SingleTickerPr
     }
   }
 
+  Widget _reasonTile(String text, Function(String) onTap) {
+    return ListTile(
+      title: Text(text, style: const TextStyle(fontSize: 18)),
+      onTap: () => onTap(text),
+    );
+  }
+
   Future<void> _deleteMedication(Medication med) async {
-    if (med.id == null) return;
+    if (med.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Item hasn't synced yet, cannot delete immediately.")));
+      return;
+    }
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -161,20 +191,31 @@ class _MedicationScreenState extends State<MedicationScreen> with SingleTickerPr
   }
 
   Widget _buildUpcomingTab() {
-    final upcoming = _medications.where((m) => m.status == MedicationStatus.scheduled || m.status == MedicationStatus.snoozed).toList();
-    if (upcoming.isEmpty) return _buildEmptyState("All caught up!", "No medications left for today.");
+    final now = DateTime.now();
 
-    // Grouping
-    final morning = upcoming.where((m) => m.timeOfDay.hour < 12).toList();
-    final afternoon = upcoming.where((m) => m.timeOfDay.hour >= 12 && m.timeOfDay.hour < 17).toList();
-    final evening = upcoming.where((m) => m.timeOfDay.hour >= 17).toList();
+    // List of doses where time is strictly past and within the 30 min window (not officially transitioned to missed yet)
+    final missed = _medications.where((m) {
+      if (m.status == MedicationStatus.taken || m.status == MedicationStatus.skipped || m.status == MedicationStatus.missed) return false;
+      final medTime = DateTime(now.year, now.month, now.day, m.timeOfDay.hour, m.timeOfDay.minute);
+      return medTime.isBefore(now);
+    }).toList();
+
+    // List of doses where time is either current or upcoming today
+    final upcoming = _medications.where((m) {
+      if (m.status != MedicationStatus.scheduled && m.status != MedicationStatus.snoozed) return false;
+      final medTime = DateTime(now.year, now.month, now.day, m.timeOfDay.hour, m.timeOfDay.minute);
+      return medTime.isAfter(now) || medTime.isAtSameMomentAs(now);
+    }).toList();
+
+    if (missed.isEmpty && upcoming.isEmpty) {
+      return _buildEmptyState("All caught up!", "No medications left for today.");
+    }
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        if (morning.isNotEmpty) ..._buildTimeSection("Morning Doses", morning, Icons.wb_sunny_outlined, Colors.orange),
-        if (afternoon.isNotEmpty) ..._buildTimeSection("Afternoon Doses", afternoon, Icons.wb_sunny, Colors.blue),
-        if (evening.isNotEmpty) ..._buildTimeSection("Evening Doses", evening, Icons.nights_stay_outlined, Colors.indigo),
+        if (upcoming.isNotEmpty) ..._buildTimeSection("Upcoming Doses", upcoming, Icons.access_time_filled, SeniorStyles.primaryBlue),
+        if (missed.isNotEmpty) ..._buildTimeSection("Missed Doses", missed, Icons.warning_amber_rounded, SeniorStyles.alertRed),
         const SizedBox(height: 80),
       ],
     );
@@ -196,6 +237,7 @@ class _MedicationScreenState extends State<MedicationScreen> with SingleTickerPr
             medication: m,
             onTaken: () => _updateStatus(m, MedicationStatus.taken),
             onSkipped: () => _updateStatus(m, MedicationStatus.skipped),
+            onSnooze: () => _updateStatus(m, MedicationStatus.snoozed),
           )),
     ];
   }
@@ -219,7 +261,7 @@ class _MedicationScreenState extends State<MedicationScreen> with SingleTickerPr
             ),
             title: Text(m.name, style: SeniorStyles.cardTitle),
             subtitle: Text("${m.dosage} • ${m.status.name.toUpperCase()}"),
-            trailing: IconButton(icon: const Icon(Icons.undo), onPressed: () => _updateStatus(m, MedicationStatus.scheduled)),
+            // No revert option for history doses
           ),
         );
       },
@@ -276,8 +318,9 @@ class _SeniorMedCard extends StatelessWidget {
   final Medication medication;
   final VoidCallback onTaken;
   final VoidCallback onSkipped;
+  final VoidCallback onSnooze;
 
-  const _SeniorMedCard({required this.medication, required this.onTaken, required this.onSkipped});
+  const _SeniorMedCard({required this.medication, required this.onTaken, required this.onSkipped, required this.onSnooze});
 
   @override
   Widget build(BuildContext context) {
@@ -333,11 +376,25 @@ class _SeniorMedCard extends StatelessWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: onSkipped,
-                  icon: const Icon(Icons.close, size: 28),
-                  label: const Text("SKIP", style: SeniorStyles.largeButtonText),
+                  icon: const Icon(Icons.close, size: 24),
+                  label: const Text("SKIP", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: SeniorStyles.alertRed, width: 2),
                     foregroundColor: SeniorStyles.alertRed,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onSnooze,
+                  icon: const Icon(Icons.snooze, size: 24),
+                  label: const Text("SNOOZE", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: SeniorStyles.warningOrange, width: 2),
+                    foregroundColor: SeniorStyles.warningOrange,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),

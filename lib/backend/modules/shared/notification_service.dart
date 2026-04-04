@@ -70,8 +70,8 @@ class NotificationService {
           presentSound: true,
         ),
       ),
-      // inexact — does NOT require SCHEDULE_EXACT_ALARM permission
-      androidScheduleMode: AndroidScheduleMode.inexact,
+      // exactAllowWhileIdle bypasses Android Doze to ensure it rings on time
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time, // repeats daily
@@ -102,7 +102,7 @@ class NotificationService {
         'Time for your routine: $routineTitle',
         tz.TZDateTime.from(scheduledDate, tz.local),
         _routineNotifDetails(),
-        androidScheduleMode: AndroidScheduleMode.inexact,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.time,
@@ -126,7 +126,7 @@ class NotificationService {
           'Time for your routine: $routineTitle',
           tz.TZDateTime.from(nextDay, tz.local),
           _routineNotifDetails(),
-          androidScheduleMode: AndroidScheduleMode.inexact,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
           matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,

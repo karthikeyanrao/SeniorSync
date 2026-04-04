@@ -8,6 +8,8 @@ import 'package:seniorsync/frontend/modules/caregiver/qr_scanner_screen.dart';
 import 'dart:async';
 import 'package:seniorsync/backend/modules/shared/notification_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:seniorsync/backend/modules/shared/api_client.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class CaregiverDashboard extends StatefulWidget {
   const CaregiverDashboard({super.key});
@@ -34,7 +36,16 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
     if (auth.user != null) {
       _service = CaregiverService(caregiverUid: auth.user!.uid);
       _loadSeniors();
-      _pollingTimer = Timer.periodic(const Duration(minutes: 1), (_) => _pollBackground());
+      // Shorten polling to 30 seconds for better responsiveness
+      _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) => _pollBackground());
+      
+      // Real-time listener for SOS alerts
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        if (message.data['type'] == 'SOS_ALERT' || message.data['type'] == 'MISSED_MED') {
+          print('[CaregiverDashboard] Real-time SOS alert received — refreshing...');
+          _loadSeniors();
+        }
+      });
     }
   }
 
@@ -118,6 +129,26 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
           setState(() => _isLoading = false);
         }
       }
+    }
+  }
+
+  Future<void> _resolveSOS(String sosId) async {
+    try {
+      setState(() => _isLoading = true);
+      final auth = Provider.of<AuthService>(context, listen: false);
+      final response = await ApiClient.put('/sos/$sosId', {
+        'status': 'resolved',
+        'resolvedBy': auth.user?.uid,
+      });
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        await _loadSeniors();
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("SOS Marked as Resolved")));
+      } else {
+        throw Exception("Failed to resolve SOS");
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      setState(() => _isLoading = false);
     }
   }
 
@@ -279,7 +310,7 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
                         children: [
                           Icon(Icons.warning_amber_rounded, color: SeniorStyles.alertRed, size: 20),
                           SizedBox(width: 8),
-                          Text("SOS ALERT ACTIVE — TAP TO VIEW LOCATION", style: TextStyle(color: SeniorStyles.alertRed, fontWeight: FontWeight.bold, fontSize: 13)),
+                          Flexible(child: Text("SOS ALERT ACTIVE — TAP TO VIEW LOCATION", style: TextStyle(color: SeniorStyles.alertRed, fontWeight: FontWeight.bold, fontSize: 13))),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -294,7 +325,21 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
                           "📍 Tap to open in Google Maps",
                           style: TextStyle(color: SeniorStyles.primaryBlue, fontSize: 13, fontWeight: FontWeight.bold),
                         ),
-                      ]
+                      ],
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _resolveSOS(senior['activeSOS']['_id']),
+                          icon: const Icon(Icons.check_circle_outline),
+                          label: const Text("MARK AS RESOLVED", style: TextStyle(fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: SeniorStyles.successGreen,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

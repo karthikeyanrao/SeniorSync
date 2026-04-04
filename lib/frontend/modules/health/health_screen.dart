@@ -163,35 +163,41 @@ class _HealthScreenState extends State<HealthScreen> {
           const SizedBox(height: 16),
           SizedBox(
             height: 200,
-            child: LineChart(
-              LineChartData(
-                gridData: const FlGridData(show: true, drawVerticalLine: false),
-                titlesData: const FlTitlesData(
-                  show: true,
-                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
+            child: InteractiveViewer(
+              panEnabled: true,
+              scaleEnabled: true,
+              minScale: 1.0,
+              maxScale: 3.0,
+              child: LineChart(
+                LineChartData(
+                  gridData: const FlGridData(show: true, drawVerticalLine: false),
+                  titlesData: const FlTitlesData(
+                    show: true,
+                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: chartItems.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.heartRate.toDouble())).toList(),
+                      isCurved: true,
+                      color: Colors.pink,
+                      barWidth: 4,
+                      dotData: const FlDotData(show: true),
+                      belowBarData: BarAreaData(show: true, color: Colors.pink.withOpacity(0.1)),
+                    ),
+                    LineChartBarData(
+                      spots: chartItems.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.bloodSugar.toDouble() / 2)).toList(), // Scaled for demo
+                      isCurved: true,
+                      color: SeniorStyles.warningOrange,
+                      barWidth: 4,
+                      dotData: const FlDotData(show: true),
+                      belowBarData: BarAreaData(show: true, color: SeniorStyles.warningOrange.withOpacity(0.1)),
+                    ),
+                  ],
                 ),
-                borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: chartItems.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.heartRate.toDouble())).toList(),
-                    isCurved: true,
-                    color: Colors.pink,
-                    barWidth: 4,
-                    dotData: const FlDotData(show: true),
-                    belowBarData: BarAreaData(show: true, color: Colors.pink.withOpacity(0.1)),
-                  ),
-                  LineChartBarData(
-                    spots: chartItems.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.bloodSugar.toDouble() / 2)).toList(), // Scaled for demo
-                    isCurved: true,
-                    color: SeniorStyles.warningOrange,
-                    barWidth: 4,
-                    dotData: const FlDotData(show: true),
-                    belowBarData: BarAreaData(show: true, color: SeniorStyles.warningOrange.withOpacity(0.1)),
-                  ),
-                ],
               ),
             ),
           ),

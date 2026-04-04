@@ -16,6 +16,9 @@ class AuthService extends ChangeNotifier {
   String? _accessToken;
   String? _refreshToken;
 
+  bool _hasOnboardedLocally = false;
+  bool get hasOnboardedLocally => _hasOnboardedLocally;
+
   AuthService() {
     _loadTokens();
     _auth.authStateChanges().listen((User? user) {
@@ -57,6 +60,18 @@ class AuthService extends ChangeNotifier {
     _accessToken = prefs.getString('access_token');
     _refreshToken = prefs.getString('refresh_token');
     _useBiometrics = prefs.getBool('use_biometrics') ?? false;
+    _hasOnboardedLocally = prefs.getBool('has_onboarded') ?? false;
+    
+    // Load cached profile
+    final cachedUser = prefs.getString('cached_db_user');
+    if (cachedUser != null) {
+      try {
+        _dbUser = json.decode(cachedUser);
+      } catch (e) {
+        print('[AuthService] Error decoding cached user: $e');
+      }
+    }
+
     if (_user != null) _fetchProfile();
     notifyListeners();
   }
@@ -85,6 +100,8 @@ class AuthService extends ChangeNotifier {
       final response = await ApiClient.get('/auth/profile/${_user!.uid}');
       if (response.statusCode == 200) {
         _dbUser = json.decode(response.body);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('cached_db_user', response.body);
         notifyListeners();
       }
     } catch (e) {
@@ -92,7 +109,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<void> updateProfile({String? name, int? age, List<String>? conditions, String? role}) async {
+  Future<void> updateProfile({String? name, int? age, List<String>? conditions, List<String>? allergies, Map<String, String>? foodTimes, bool? onboarded, String? role}) async {
     if (_user == null) return;
     try {
       final response = await ApiClient.patch(
@@ -101,9 +118,17 @@ class AuthService extends ChangeNotifier {
           if (name != null) 'name': name,
           if (age != null) 'age': age,
           if (conditions != null) 'conditions': conditions,
+          if (allergies != null) 'allergies': allergies,
+          if (foodTimes != null) 'foodTimes': foodTimes,
+          if (onboarded != null) 'onboarded': onboarded,
           if (role != null) 'role': role,
         },
       );
+      if (onboarded == true) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('has_onboarded', true);
+        _hasOnboardedLocally = true;
+      }
       if (response.statusCode == 200) {
         _dbUser = json.decode(response.body);
         notifyListeners();
@@ -115,23 +140,38 @@ class AuthService extends ChangeNotifier {
 
   Future<void> addCaregiver(String email) async {
     if (_user == null) return;
-    try {
-      final response = await http.post(
-        Uri.parse('${AppConstants.baseUrl}/auth/pair/caregiver'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'seniorUid': _user!.uid,
-          'caregiverEmail': email,
-        }),
-      );
-      if (response.statusCode != 200) {
-        final err = json.decode(response.body);
-        throw Exception(err['error'] ?? 'Linking failed');
+    final res = await http.post(
+      Uri.parse('${AppConstants.baseUrl}/auth/pair/caregiver'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'seniorUid': _user!.uid, 'caregiverEmail': email}),
+    );
+    if (res.statusCode != 200) {
+      try {
+        final error = jsonDecode(res.body)['error'];
+        throw Exception(error ?? 'Operation failed');
+      } catch (e) {
+        throw Exception('Server error: ${res.statusCode}');
       }
-      _fetchProfile(); // Refresh profile to show new caregiver
-    } catch (e) {
-      rethrow;
     }
+    await _syncWithBackend(_user!);
+  }
+
+  Future<void> unlinkCaregiver(String caregiverUid) async {
+    if (_user == null) return;
+    final res = await http.post(
+      Uri.parse('${AppConstants.baseUrl}/auth/unlink'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'seniorUid': _user!.uid, 'caregiverUid': caregiverUid}),
+    );
+    if (res.statusCode != 200) {
+      try {
+        final error = jsonDecode(res.body)['error'];
+        throw Exception(error ?? 'Operation failed');
+      } catch (e) {
+        throw Exception('Server error: ${res.statusCode}');
+      }
+    }
+    await _syncWithBackend(_user!);
   }
 
   Future<void> addSeniorByUid(String seniorUid) async {
@@ -172,13 +212,13 @@ class AuthService extends ChangeNotifier {
     // Attempt to get FCM Token for push notifications
     String? fcmToken;
     try {
-      fcmToken = await FirebaseMessaging.instance.getToken();
+      fcmToken = await FirebaseMessaging.instance.getToken().timeout(const Duration(seconds: 2));
     } catch (e) {
       print('[AuthService] Could not request FCM token: $e');
     }
 
-    // Retry up to 3 times with a 2-second delay
-    for (int attempt = 1; attempt <= 3; attempt++) {
+    // Retry up to 2 times with no delay to speed up login
+    for (int attempt = 1; attempt <= 2; attempt++) {
       try {
         final url = '${AppConstants.baseUrl}/auth/sync';
         print('[AuthService] Sync attempt $attempt to: $url');
@@ -193,20 +233,19 @@ class AuthService extends ChangeNotifier {
                 : (user.email?.split('@').first ?? 'User'),
             'fcmToken': fcmToken,
           }),
-        ).timeout(const Duration(seconds: 10));
+        ).timeout(const Duration(seconds: 4));
         print('[AuthService] Sync response: ${response.statusCode}');
         if (response.statusCode == 200 || response.statusCode == 201) {
           final data = json.decode(response.body);
           _dbUser = data['user'];
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('cached_db_user', json.encode(_dbUser));
           await _saveTokens(data['accessToken'] ?? '', data['refreshToken'] ?? '');
           notifyListeners();
           return; // Success — exit retry loop
         }
       } catch (e) {
         print('[AuthService] ❌ Sync attempt $attempt failed: $e');
-        if (attempt < 3) {
-          await Future.delayed(const Duration(seconds: 2));
-        }
       }
     }
     // All sync attempts failed — fallback to fetching existing profile

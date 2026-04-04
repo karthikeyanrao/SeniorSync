@@ -10,6 +10,10 @@ class Medication {
   final TimeOfDay timeOfDay;
   final String? notes;
   final MedicationStatus status;
+  final String? skippedReason;
+  final String? notificationSound;
+  final String? foodTiming;
+  final String? medicineType;
 
   Medication({
     this.id,
@@ -18,6 +22,10 @@ class Medication {
     required this.timeOfDay,
     this.notes,
     this.status = MedicationStatus.scheduled,
+    this.skippedReason,
+    this.notificationSound,
+    this.foodTiming,
+    this.medicineType,
   });
 
   factory Medication.fromMap(Map<String, dynamic> data) {
@@ -34,9 +42,12 @@ class Medication {
       ),
       notes: data['notes'],
       status: MedicationStatus.values.firstWhere(
-        (e) => e.name == (data['status'] ?? 'scheduled'),
         orElse: () => MedicationStatus.scheduled,
       ),
+      skippedReason: data['skippedReason'],
+      notificationSound: data['notificationSound'],
+      foodTiming: data['foodTiming'],
+      medicineType: data['medicineType'],
     );
   }
 
@@ -48,6 +59,10 @@ class Medication {
       'timeOfDay': {'hour': timeOfDay.hour, 'minute': timeOfDay.minute},
       'notes': notes,
       'status': status.name,
+      'skippedReason': skippedReason,
+      'notificationSound': notificationSound,
+      'foodTiming': foodTiming,
+      'medicineType': medicineType,
     };
   }
 
@@ -58,6 +73,10 @@ class Medication {
     TimeOfDay? timeOfDay,
     String? notes,
     MedicationStatus? status,
+    String? skippedReason,
+    String? notificationSound,
+    String? foodTiming,
+    String? medicineType,
   }) {
     return Medication(
       id: id ?? this.id,
@@ -66,6 +85,10 @@ class Medication {
       timeOfDay: timeOfDay ?? this.timeOfDay,
       notes: notes ?? this.notes,
       status: status ?? this.status,
+      skippedReason: skippedReason ?? this.skippedReason,
+      notificationSound: notificationSound ?? this.notificationSound,
+      foodTiming: foodTiming ?? this.foodTiming,
+      medicineType: medicineType ?? this.medicineType,
     );
   }
 }
