@@ -39,7 +39,10 @@ router.post('/trigger', async (req, res) => {
               seniorUid: userId,
               locationUrl: mapUrl
             },
-            android: { priority: 'high' },
+            android: {
+              priority: 'high',
+              notification: { channelId: 'sos_alerts', sound: 'default' },
+            },
             token: caregiver.fcmToken,
           });
         }

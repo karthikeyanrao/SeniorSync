@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Medication = require('../models/Medication');
 const Vitals = require('../models/Vitals');
 const SOS = require('../models/SOS');
+const { nowInUserTz } = require('../utils/userLocalTime');
 
 // Get all linked seniors for a caregiver
 router.get('/seniors/:caregiverUid', async (req, res) => {
@@ -26,17 +27,16 @@ router.get('/seniors/:caregiverUid', async (req, res) => {
       const activeSOS = await SOS.findOne({ userId: senior.firebaseUid, status: 'active' }).sort({ timestamp: -1 });
       const lastVitals = await Vitals.findOne({ userId: senior.firebaseUid }).sort({ timestamp: -1 });
       
-      const now = new Date();
-      const currH = now.getHours();
-      const currM = now.getMinutes();
-      
-      // Correct query matching actual Medication schema: timeOfDay.hour/minute + status
+      const local = nowInUserTz(senior.timezoneOffsetMinutes);
+      const currH = local.hour;
+      const currM = local.minute;
+
       const allPendingMeds = await Medication.find({
         userId: senior.firebaseUid,
         status: 'scheduled'
       });
-      
-      const missedMedications = allPendingMeds.filter(med => {
+
+      const missedMedications = allPendingMeds.filter((med) => {
         if (!med.timeOfDay) return false;
         const h = med.timeOfDay.hour ?? 0;
         const m = med.timeOfDay.minute ?? 0;

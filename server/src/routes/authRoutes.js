@@ -9,7 +9,7 @@ const jwt = require('jsonwebtoken');
 
 // Register or Sync User
 router.post('/sync', async (req, res) => {
-  const { firebaseUid, name, email, fcmToken } = req.body;
+  const { firebaseUid, name, email, fcmToken, timezoneOffsetMinutes } = req.body;
   const safeName = (name && name.trim()) ? name.trim() : (email ? email.split('@')[0] : 'User');
 
   try {
@@ -29,13 +29,17 @@ router.post('/sync', async (req, res) => {
       // Update existing user
       user.name = safeName || user.name;
       if (fcmToken) user.fcmToken = fcmToken;
+      if (timezoneOffsetMinutes !== undefined && timezoneOffsetMinutes !== null && Number.isFinite(Number(timezoneOffsetMinutes))) {
+        user.timezoneOffsetMinutes = Number(timezoneOffsetMinutes);
+      }
     } else {
       // Create new user
       user = new User({
         firebaseUid,
         name: safeName,
         email,
-        fcmToken: fcmToken || null
+        fcmToken: fcmToken || null,
+        timezoneOffsetMinutes: Number.isFinite(Number(timezoneOffsetMinutes)) ? Number(timezoneOffsetMinutes) : 0,
       });
     }
 
@@ -97,7 +101,7 @@ router.get('/profile/:uid', async (req, res) => {
 // Update User Profile
 router.patch('/profile/:uid', async (req, res) => {
   try {
-    const { name, age, conditions, allergies, foodTimes, onboarded, role } = req.body;
+    const { name, age, conditions, allergies, foodTimes, onboarded, role, timezoneOffsetMinutes } = req.body;
     // Never $set undefined — MongoDB driver / Mongoose can reject or behave oddly
     const updateData = {};
     if (name !== undefined) updateData.name = name;
@@ -107,6 +111,9 @@ router.patch('/profile/:uid', async (req, res) => {
     if (foodTimes !== undefined) updateData.foodTimes = foodTimes;
     if (onboarded !== undefined) updateData.onboarded = onboarded;
     if (role !== undefined) updateData.role = role;
+    if (timezoneOffsetMinutes !== undefined && timezoneOffsetMinutes !== null && Number.isFinite(Number(timezoneOffsetMinutes))) {
+      updateData.timezoneOffsetMinutes = Number(timezoneOffsetMinutes);
+    }
 
     if (Object.keys(updateData).length === 0) {
       const user = await User.findOne({ firebaseUid: req.params.uid });

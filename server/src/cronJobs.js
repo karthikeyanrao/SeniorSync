@@ -3,70 +3,73 @@ const admin = require('firebase-admin');
 const Medication = require('./models/Medication');
 const Routine = require('./models/Routine');
 const User = require('./models/User');
+const { nowInUserTz, appDayString } = require('./utils/userLocalTime');
 
 const checkMissedAlerts = async () => {
   try {
     console.log('[CRON] Checking for missed medications and routines...');
-    const now = new Date();
-    const currH = now.getHours();
-    const currM = now.getMinutes();
-    const currentDayStr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][now.getDay()];
+    const fcmReady = admin.apps && admin.apps.length > 0;
 
-    // 1. MISSED MEDICATIONS
+    // 1. MISSED MEDICATIONS (wall clock = senior's device offset, synced on login)
     const medications = await Medication.find({ status: 'scheduled' });
     for (const med of medications) {
       if (!med.timeOfDay) continue;
 
+      const senior = await User.findOne({ firebaseUid: med.userId }).lean();
+      const local = nowInUserTz(senior?.timezoneOffsetMinutes);
+      const currH = local.hour;
+      const currM = local.minute;
+
       const medMins = med.timeOfDay.hour * 60 + med.timeOfDay.minute;
       const currMins = currH * 60 + currM;
-      const elapsedMins = currMins - medMins;
-
-      // If time is in the future, do nothing
+      let elapsedMins = currMins - medMins;
+      // Same calendar day assumption (see README): if negative, dose time is later today
       if (elapsedMins < 0) continue;
 
-      // If >= 30 mins elapsed, formally mark as missed & alert caregiver ONCE
+      // If >= 30 mins elapsed, formally mark as missed & alert (once — status leaves scheduled)
       if (elapsedMins >= 30) {
         med.status = 'missed';
         await med.save();
-        console.log(`[CRON] Marking med ${med._id} as MISSED (elapsed 30+ mins)`);
+        console.log(`[CRON] Marking med ${med._id} as MISSED (elapsed 30+ mins, user local)`);
 
-        const senior = await User.findOne({ firebaseUid: med.userId });
-        if (!senior) continue;
+        const seniorDoc = await User.findOne({ firebaseUid: med.userId });
+        if (!seniorDoc || !fcmReady) continue;
 
-        // Alert senior as well
-        if (senior.fcmToken) {
+        if (seniorDoc.fcmToken) {
           try {
             await admin.messaging().send({
               notification: { title: 'Dose Missed! ⚠️', body: `You missed your dose of ${med.name} (${med.dosage}). Please take it as soon as possible if safe.` },
               data: { type: 'MISSED_MED_PATIENT', medId: med._id.toString() },
-              android: { 
+              android: {
                 priority: 'high',
                 notification: {
-                  sound: med.notificationSound || 'default'
-                }
+                  channelId: 'sos_alerts',
+                  sound: med.notificationSound || 'default',
+                },
               },
-              token: senior.fcmToken,
+              token: seniorDoc.fcmToken,
             });
-            console.log(`[CRON] Senior push sent for missed med: ${senior.firebaseUid}`);
+            console.log(`[CRON] Senior push sent for missed med: ${seniorDoc.firebaseUid}`);
           } catch (e) {
             console.error(`[CRON] Failed to send missed push to senior:`, e);
           }
         }
 
-        if (senior.caregivers && senior.caregivers.length > 0) {
-          const caregiverUids = senior.caregivers.map(c => c.uid);
+        if (seniorDoc.caregivers && seniorDoc.caregivers.length > 0) {
+          const caregiverUids = seniorDoc.caregivers.map((c) => c.uid);
           const caregivers = await User.find({ firebaseUid: { $in: caregiverUids }, fcmToken: { $exists: true, $ne: null } });
           for (const caregiver of caregivers) {
             try {
-              const medTimeString = `${med.timeOfDay.hour.toString().padStart(2,'0')}:${med.timeOfDay.minute.toString().padStart(2,'0')}`;
+              const medTimeString = `${med.timeOfDay.hour.toString().padStart(2, '0')}:${med.timeOfDay.minute.toString().padStart(2, '0')}`;
               await admin.messaging().send({
-                notification: { title: 'Missed Medication Alert! 🚨', body: `${senior.name || 'Your senior'} has missed their dose of ${med.name} (${med.dosage}) scheduled at ${medTimeString}. Please check on them.` },
-                data: { type: 'MISSED_MED', seniorUid: senior.firebaseUid, medId: med._id.toString() },
-                android: { 
+                notification: { title: 'Missed Medication Alert! 🚨', body: `${seniorDoc.name || 'Your senior'} has missed their dose of ${med.name} (${med.dosage}) scheduled at ${medTimeString}. Please check on them.` },
+                data: { type: 'MISSED_MED', seniorUid: seniorDoc.firebaseUid, medId: med._id.toString() },
+                android: {
                   priority: 'high',
                   notification: {
-                    sound: 'warning_alert_tone'
-                  }
+                    channelId: 'sos_alerts',
+                    sound: 'default',
+                  },
                 },
                 token: caregiver.fcmToken,
               });
@@ -76,24 +79,23 @@ const checkMissedAlerts = async () => {
             }
           }
         }
-      } 
-      // If elapsed is 0-9 mins (right on time window), send soft reminder to senior ONCE
-      else if (elapsedMins >= 0 && elapsedMins < 10) {
-        const senior = await User.findOne({ firebaseUid: med.userId });
-        if (senior && senior.fcmToken) {
+      } else if (elapsedMins >= 0 && elapsedMins < 10 && fcmReady) {
+        const seniorDoc = await User.findOne({ firebaseUid: med.userId });
+        if (seniorDoc && seniorDoc.fcmToken) {
           try {
             await admin.messaging().send({
               notification: { title: 'Time for Medication! 💊', body: `Don't forget to take ${med.name} (${med.dosage}) right now!` },
               data: { type: 'REMINDER_MED' },
-              android: { 
+              android: {
                 priority: 'high',
                 notification: {
-                  sound: med.notificationSound || 'default'
-                }
+                  channelId: 'med_reminders',
+                  sound: med.notificationSound || 'default',
+                },
               },
-              token: senior.fcmToken,
+              token: seniorDoc.fcmToken,
             });
-            console.log(`[CRON] Senior reminder push sent for med: ${senior.firebaseUid}`);
+            console.log(`[CRON] Senior reminder push sent for med: ${seniorDoc.firebaseUid}`);
           } catch (e) {
             console.error(`[CRON] Failed to send push to senior:`, e);
           }
@@ -101,28 +103,36 @@ const checkMissedAlerts = async () => {
       }
     }
 
-    // 2. MISSED ROUTINES
-    const missedRoutines = await Routine.find({ isCompletedToday: false, days: currentDayStr });
-    for (const routine of missedRoutines) {
+    // 2. ROUTINE REMINDERS — per-user local weekday
+    const routines = await Routine.find({ isCompletedToday: false });
+    for (const routine of routines) {
       if (!routine.time) continue;
+      const senior = await User.findOne({ firebaseUid: routine.userId }).lean();
+      const local = nowInUserTz(senior?.timezoneOffsetMinutes);
+      const todayStr = appDayString(local);
+      if (!routine.days || !routine.days.includes(todayStr)) continue;
+
+      const currH = local.hour;
+      const currM = local.minute;
       const rMins = routine.time.hour * 60 + routine.time.minute;
       const currMins = currH * 60 + currM;
       const elapsedMins = currMins - rMins;
+      if (elapsedMins < 0 || elapsedMins >= 10 || !fcmReady) continue;
 
-      // Only send routine reminder once when it hits schedule (0-9 min window)
-      if (elapsedMins >= 0 && elapsedMins < 10) {
-        const senior = await User.findOne({ firebaseUid: routine.userId });
-        if (senior && senior.fcmToken) {
-          try {
-            await admin.messaging().send({
-              notification: { title: 'Routine Reminder! 📋', body: `It's time to complete your task: ${routine.title}` },
-              data: { type: 'REMINDER_ROUTINE' },
-              android: { priority: 'high' },
-              token: senior.fcmToken,
-            });
-          } catch (e) {
-            console.error(`[CRON] Failed to send routine push to senior:`, e);
-          }
+      const seniorDoc = await User.findOne({ firebaseUid: routine.userId });
+      if (seniorDoc && seniorDoc.fcmToken) {
+        try {
+          await admin.messaging().send({
+            notification: { title: 'Routine Reminder! 📋', body: `It's time to complete your task: ${routine.title}` },
+            data: { type: 'REMINDER_ROUTINE' },
+            android: {
+              priority: 'high',
+              notification: { channelId: 'routine_reminders' },
+            },
+            token: seniorDoc.fcmToken,
+          });
+        } catch (e) {
+          console.error(`[CRON] Failed to send routine push to senior:`, e);
         }
       }
     }

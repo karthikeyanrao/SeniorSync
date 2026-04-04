@@ -52,6 +52,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     sparse: true,
   },
+  /** Device offset from UTC in minutes (e.g. India +330). Used for med/routine cron. */
+  timezoneOffsetMinutes: {
+    type: Number,
+    default: 0,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
