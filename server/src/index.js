@@ -14,6 +14,15 @@ const PORT = process.env.PORT || 5000;
 app.set('trust proxy', 1);
 
 // Global Rate Limiting (BR-Security)
+app.use(express.json());
+
+// 🟢 PUBLIC STATUS CHECK (NO TOKEN NEEDED)
+// This is at the very top to ensure it is always accessible without 401
+app.get('/api/health/ping', (req, res) => res.json({ status: 'Server Active 🟢', timestamp: new Date() }));
+app.use('/api/health', require('./routes/healthRoutes'));
+app.use('/api/auth/sync', require('./routes/authRoutes'));
+
+// Global Rate Limiting (BR-Security)
 const rateLimit = require('express-rate-limit');
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -23,10 +32,6 @@ const limiter = rateLimit({
   validate: { trustProxy: false },
 });
 app.use(limiter);
-
-// Middleware
-app.use(cors());
-app.use(express.json());
 
 // Request Logger — See what the Flutter app is sending
 app.use((req, res, next) => {
@@ -78,11 +83,8 @@ const caregiverRoutes = require('./routes/caregiverRoutes');
 const requireAuth = require('./middleware/authMiddleware');
 const startCronJobs = require('./cronJobs');
 
-// Public Routes (No Token Needed)
+// Final Route Registration
 app.use('/api/auth', authRoutes);
-app.use('/api/health', healthRoutes); // This is now public 🟢
-
-// Protected Routes (Token Required)
 app.use('/api/medications', requireAuth, medicationRoutes);
 app.use('/api/sos', requireAuth, sosRoutes);
 app.use('/api/routines', requireAuth, routineRoutes);
