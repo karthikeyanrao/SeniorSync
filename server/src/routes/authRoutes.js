@@ -13,6 +13,16 @@ router.post('/sync', async (req, res) => {
   const safeName = (name && name.trim()) ? name.trim() : (email ? email.split('@')[0] : 'User');
 
   try {
+    // 1. Load raw data (lean) to check for basic structure/corruption
+    let userRecord = await User.findOne({ firebaseUid }).lean();
+
+    // 2. RAW FIX: If we see the 'caregivers' string corruption, fix it BEFORE loading the document
+    if (userRecord && (typeof userRecord.caregivers === 'string' || !Array.isArray(userRecord.caregivers))) {
+      console.warn(`[RAW-REPAIR] Sanitizing caregivers field for: ${firebaseUid}`);
+      await User.updateOne({ firebaseUid }, { $set: { caregivers: [] } });
+    }
+
+    // 3. Now it is safe to load as a formal Mongoose Document
     let user = await User.findOne({ firebaseUid });
 
     if (user) {
@@ -45,18 +55,19 @@ router.post('/sync', async (req, res) => {
     // Store refresh token in user document
     user.refreshToken = refreshToken;
 
-    // SELF-REPAIR: If 'caregivers' is corrupted (as a string/primitive), reset to []
-    if (typeof user.caregivers === 'string') {
-      console.warn(`[REPAIR] Fixing corrupted caregivers field for user: ${user.firebaseUid}`);
+    // Aggressive SELF-REPAIR: If 'caregivers' is not a valid list, force-reset it.
+    // This fixes the 'Tried to set nested object field to primitive' error.
+    if (!Array.isArray(user.caregivers) || (user.caregivers.length > 0 && typeof user.caregivers[0] !== 'object')) {
+      console.warn(`[REPAIR] Fixing corrupted caregivers field for: ${user.firebaseUid} (Found: ${typeof user.caregivers})`);
       user.caregivers = [];
     }
 
     try {
       await user.save();
     } catch (saveErr) {
-      // If validation still fails, force reset caregivers completely
-      console.warn('[REPAIR] Critical validation error — resetting caregivers list.');
-      user.caregivers = [];
+      console.warn(`[REPAIR] Save failed for ${user.firebaseUid}, force-wiping and retrying...`);
+      // Use raw update if save fails to bypass Mongoose validation lock
+      await User.updateOne({ firebaseUid: user.firebaseUid }, { $set: { caregivers: [] } });
       await user.save();
     }
 

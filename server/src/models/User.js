@@ -58,4 +58,17 @@ const userSchema = new mongoose.Schema({
   },
 });
 
+userSchema.pre('save', function(next) {
+  // Global SELF-REPAIR: If 'caregivers' is corrupted (string/null/etc), force reset to []
+  if (!Array.isArray(this.caregivers)) {
+    console.warn(`[MODEL-REPAIR] Fixing caregivers array for: ${this.firebaseUid}`);
+    this.caregivers = [];
+  } else if (this.caregivers.length > 0 && typeof this.caregivers[0] !== 'object') {
+    // If it's an array of strings instead of array of objects
+    console.warn(`[MODEL-REPAIR] Fixing caregivers object map for: ${this.firebaseUid}`);
+    this.caregivers = [];
+  }
+  next();
+});
+
 module.exports = mongoose.model('User', userSchema);

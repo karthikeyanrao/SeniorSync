@@ -8,11 +8,11 @@ const SOS = require('../models/SOS');
 // Get all linked seniors for a caregiver
 router.get('/seniors/:caregiverUid', async (req, res) => {
   try {
-    const caregiver = await User.findOne({ firebaseUid: req.params.caregiverUid });
+    const caregiver = await User.findOne({ firebaseUid: req.params.caregiverUid }).lean();
     if (!caregiver) return res.status(404).json({ error: 'Caregiver not found' });
 
-    // Fetch details of all linked seniors
-    const seniors = await User.find({ firebaseUid: { $in: caregiver.linkedSeniors || [] } });
+    // Fetch raw details of all linked seniors (use .lean() to prevent crashes)
+    const seniors = await User.find({ firebaseUid: { $in: caregiver.linkedSeniors || [] } }).lean();
     
     // For each senior, fetch latest vitals, active SOS, and missed medications
     const enrichedSeniors = await Promise.all(seniors.map(async (senior) => {
