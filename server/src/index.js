@@ -40,13 +40,46 @@ app.use((req, res, next) => {
   next();
 });
 
-// Database Connection
-mongoose.connect(process.env.MONGODB_URI, {
-  serverSelectionTimeoutMS: 5000, // Wait only 5 seconds for connection
-  bufferCommands: false, // Don't buffer commands if not connected
-})
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
+// Database Connection — Vercel-safe cached pattern
+// Vercel serverless: re-use existing connection if already open (state === 1)
+let isConnecting = false;
+async function connectDB() {
+  if (mongoose.connection.readyState === 1) return; // Already connected
+  if (mongoose.connection.readyState === 2) return; // Connecting
+  if (isConnecting) return;
+  isConnecting = true;
+  try {
+    await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      connectTimeoutMS: 10000,
+      bufferCommands: true, // Allow buffering so requests wait for connection
+      maxPoolSize: 10,
+    });
+    console.log('Connected to MongoDB ✅');
+  } catch (err) {
+    console.error('MongoDB connection error:', err);
+    isConnecting = false;
+    throw err;
+  }
+  isConnecting = false;
+}
+
+// Connect immediately on boot and also ensure connected on each request
+connectDB();
+
+// Middleware to ensure DB is connected before any route that needs it
+app.use(async (req, res, next) => {
+  // Skip for ping/health checks so they never block
+  if (req.path === '/api/health/ping') return next();
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('[DB] Connection failed:', err.message);
+    res.status(503).json({ error: 'Database unavailable, please retry.' });
+  }
+});
 
 // Initialize Firebase Admin (for SOS & Missed Dose Notifications)
 if (!admin.apps.length) {
@@ -82,7 +115,8 @@ const requireAuth = require('./middleware/authMiddleware');
 const startCronJobs = require('./cronJobs');
 
 // Final Route Registration
-app.use('/api/auth', authRoutes);
+app.use('/api/health', healthRoutes);           // Public: /api/health/ping, /api/health/status, /api/health/vitals
+app.use('/api/auth', authRoutes);               // Public: sync, profile, pair
 app.use('/api/medications', requireAuth, medicationRoutes);
 app.use('/api/sos', requireAuth, sosRoutes);
 app.use('/api/routines', requireAuth, routineRoutes);
