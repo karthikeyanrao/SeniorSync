@@ -34,6 +34,21 @@ const startCronJobs = () => {
           const senior = await User.findOne({ firebaseUid: med.userId });
           if (!senior) continue;
 
+          // Alert senior as well
+          if (senior.fcmToken) {
+            try {
+              await admin.messaging().send({
+                notification: { title: 'Dose Missed! ⚠️', body: `You missed your dose of ${med.name} (${med.dosage}). Please take it as soon as possible if safe.` },
+                data: { type: 'MISSED_MED_PATIENT', medId: med._id.toString() },
+                android: { priority: 'high' },
+                token: senior.fcmToken,
+              });
+              console.log(`[CRON] Senior push sent for missed med: ${senior.firebaseUid}`);
+            } catch (e) {
+              console.error(`[CRON] Failed to send missed push to senior:`, e);
+            }
+          }
+
           if (senior.caregivers && senior.caregivers.length > 0) {
             const caregivers = await User.find({ firebaseUid: { $in: senior.caregivers }, fcmToken: { $exists: true, $ne: null } });
             for (const caregiver of caregivers) {
