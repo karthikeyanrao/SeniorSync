@@ -40,29 +40,54 @@ app.use((req, res, next) => {
   next();
 });
 
-// Database Connection — Vercel-safe cached pattern
-// Vercel serverless: re-use existing connection if already open (state === 1)
-let isConnecting = false;
+// Database Connection — Vercel serverless: one shared in-flight promise per instance
+const mongoGlobal = global;
+if (!mongoGlobal.__seniorsyncConn) {
+  mongoGlobal.__seniorsyncConn = { promise: null };
+}
+const connCache = mongoGlobal.__seniorsyncConn;
+
 async function connectDB() {
-  if (mongoose.connection.readyState === 1) return; // Already connected
-  if (mongoose.connection.readyState === 2) return; // Connecting
-  if (isConnecting) return;
-  isConnecting = true;
+  if (!process.env.MONGODB_URI || !String(process.env.MONGODB_URI).trim()) {
+    throw new Error('MONGODB_URI is missing — add it in Vercel Project → Settings → Environment Variables');
+  }
+  if (mongoose.connection.readyState === 1) return;
+
+  if (mongoose.connection.readyState === 2) {
+    await mongoose.connection.asPromise();
+    return;
+  }
+
+  if (!connCache.promise) {
+    connCache.promise = mongoose
+      .connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 10000,
+        socketTimeoutMS: 45000,
+        connectTimeoutMS: 10000,
+        maxPoolSize: 10,
+        bufferCommands: false,
+      })
+      .then(() => {
+        console.log('Connected to MongoDB ✅');
+      })
+      .catch((err) => {
+        connCache.promise = null;
+        throw err;
+      });
+  }
+
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-      connectTimeoutMS: 10000,
-      bufferCommands: true, // Allow buffering so requests wait for connection
-      maxPoolSize: 10,
-    });
-    console.log('Connected to MongoDB ✅');
+    await connCache.promise;
   } catch (err) {
+    connCache.promise = null;
     console.error('MongoDB connection error:', err);
-    isConnecting = false;
     throw err;
   }
-  isConnecting = false;
+
+  if (mongoose.connection.readyState !== 1) {
+    connCache.promise = null;
+    throw new Error('MongoDB connection not ready after connect');
+  }
 }
 
 // Connect immediately on boot and also ensure connected on each request
@@ -112,7 +137,7 @@ const routineRoutes = require('./routes/routineRoutes');
 
 const caregiverRoutes = require('./routes/caregiverRoutes');
 const requireAuth = require('./middleware/authMiddleware');
-const startCronJobs = require('./cronJobs');
+// Scheduled jobs run via Vercel Cron → GET /api/cron/trigger (see cronJobs.js)
 
 // Final Route Registration
 app.use('/api/health', healthRoutes);           // Public: /api/health/ping, /api/health/status, /api/health/vitals

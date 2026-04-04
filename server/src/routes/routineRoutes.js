@@ -22,7 +22,8 @@ router.get('/:userId', async (req, res) => {
     const routines = await Routine.find({ userId: req.params.userId });
     res.json(routines);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch routines' });
+    console.error('GET /routines/:userId error:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch routines' });
   }
 });
 
@@ -40,7 +41,7 @@ router.post('/', async (req, res) => {
 // Edit routine
 router.put('/:id', async (req, res) => {
   try {
-    const updated = await Routine.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updated = await Routine.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after' });
     if (!updated) return res.status(404).json({ error: 'Routine not found' });
     res.json(updated);
   } catch (error) {

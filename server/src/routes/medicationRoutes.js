@@ -32,7 +32,7 @@ router.put('/:id', async (req, res) => {
     const updatedMed = await Medication.findByIdAndUpdate(
       req.params.id,
       { ...req.body, lastUpdated: Date.now() },
-      { new: true }
+      { returnDocument: 'after' }
     );
     res.json(updatedMed);
   } catch (error) {

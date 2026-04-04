@@ -98,18 +98,32 @@ router.get('/profile/:uid', async (req, res) => {
 router.patch('/profile/:uid', async (req, res) => {
   try {
     const { name, age, conditions, allergies, foodTimes, onboarded, role } = req.body;
-    const updateData = { name, age, conditions, allergies, foodTimes, role };
+    // Never $set undefined — MongoDB driver / Mongoose can reject or behave oddly
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (age !== undefined) updateData.age = age;
+    if (conditions !== undefined) updateData.conditions = conditions;
+    if (allergies !== undefined) updateData.allergies = allergies;
+    if (foodTimes !== undefined) updateData.foodTimes = foodTimes;
     if (onboarded !== undefined) updateData.onboarded = onboarded;
+    if (role !== undefined) updateData.role = role;
+
+    if (Object.keys(updateData).length === 0) {
+      const user = await User.findOne({ firebaseUid: req.params.uid });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      return res.json(user);
+    }
 
     const user = await User.findOneAndUpdate(
       { firebaseUid: req.params.uid },
       { $set: updateData },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json(user);
   } catch (error) {
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error('PATCH /auth/profile error:', error);
+    res.status(500).json({ error: error.message || 'Internal Server Error' });
   }
 });
 
@@ -125,7 +139,7 @@ router.post('/pair/caregiver', async (req, res) => {
     const senior = await User.findOneAndUpdate(
       { firebaseUid: seniorUid },
       { $addToSet: { caregivers: { uid: caregiver.firebaseUid, permissionLevel: 'admin' } } },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     // Add senior to caregiver
@@ -158,7 +172,7 @@ router.post('/pair/senior', async (req, res) => {
     await User.findOneAndUpdate(
       { firebaseUid: caregiverUid },
       { $addToSet: { linkedSeniors: seniorUid } },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     res.json({ message: 'Senior linked successfully' });

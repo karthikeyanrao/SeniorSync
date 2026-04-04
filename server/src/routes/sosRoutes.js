@@ -61,7 +61,7 @@ router.put('/:id', async (req, res) => {
     const updatedSOS = await SOS.findByIdAndUpdate(
       req.params.id,
       { status, note, resolvedBy },
-      { new: true }
+      { returnDocument: 'after' }
     );
     res.json(updatedSOS);
   } catch (error) {
