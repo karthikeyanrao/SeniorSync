@@ -25,6 +25,8 @@ const medicationSchema = new mongoose.Schema({
     enum: ['scheduled', 'taken', 'skipped', 'missed', 'snoozed'],
     default: 'scheduled',
   },
+  foodTiming: String,
+  medicineType: String,
   lastUpdated: {
     type: Date,
     default: Date.now,

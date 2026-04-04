@@ -17,7 +17,17 @@ const userSchema = new mongoose.Schema({
     unique: true,
   },
   age: Number,
+  allergies: [String],
   conditions: [String],
+  foodTimes: {
+    morning: String,
+    afternoon: String,
+    night: String,
+  },
+  onboarded: {
+    type: Boolean,
+    default: false,
+  },
   role: {
     type: String,
     enum: ['senior', 'caregiver'],

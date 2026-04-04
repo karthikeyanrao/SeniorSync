@@ -72,10 +72,13 @@ router.get('/profile/:uid', async (req, res) => {
 // Update User Profile
 router.patch('/profile/:uid', async (req, res) => {
   try {
-    const { name, age, conditions, role } = req.body;
+    const { name, age, conditions, allergies, foodTimes, onboarded, role } = req.body;
+    const updateData = { name, age, conditions, allergies, foodTimes, role };
+    if (onboarded !== undefined) updateData.onboarded = onboarded;
+
     const user = await User.findOneAndUpdate(
       { firebaseUid: req.params.uid },
-      { $set: { name, age, conditions, role } },
+      { $set: updateData },
       { new: true }
     );
     if (!user) return res.status(404).json({ error: 'User not found' });

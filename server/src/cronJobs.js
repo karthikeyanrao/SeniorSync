@@ -26,6 +26,7 @@ const startCronJobs = () => {
             await admin.messaging().send({
               notification: { title: 'Time for Medication! 💊', body: `Don't forget to take ${med.name} (${med.dosage}) right now!` },
               data: { type: 'REMINDER_MED' },
+              android: { priority: 'high' },
               token: senior.fcmToken,
             });
           } catch (e) {
@@ -41,6 +42,7 @@ const startCronJobs = () => {
               await admin.messaging().send({
                 notification: { title: 'Missed Medication Alert! 🚨', body: `${senior.name} has missed their dose of ${med.name} (${med.dosage}) scheduled at ${medTimeString}. Please check on them.` },
                 data: { type: 'MISSED_MED', seniorUid: senior.firebaseUid, medId: med._id.toString() },
+                android: { priority: 'high' },
                 token: caregiver.fcmToken,
               });
             } catch (e) {
@@ -61,6 +63,7 @@ const startCronJobs = () => {
             await admin.messaging().send({
               notification: { title: 'Routine Reminder! 📋', body: `It's time to complete your task: ${routine.title}` },
               data: { type: 'REMINDER_ROUTINE' },
+              android: { priority: 'high' },
               token: senior.fcmToken,
             });
           } catch (e) {
