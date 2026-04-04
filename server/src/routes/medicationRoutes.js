@@ -6,10 +6,12 @@ const Medication = require('../models/Medication');
 // Get all medications for a user
 router.get('/:userId', async (req, res) => {
   try {
-    const medications = await Medication.find({ userId: req.params.userId });
+    // 💡 Use .lean() to bypass potential corruption crashes
+    const medications = await Medication.find({ userId: req.params.userId }).lean();
     res.json(medications);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch medications' });
+    console.error('Error fetching medications:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

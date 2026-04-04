@@ -78,8 +78,11 @@ const caregiverRoutes = require('./routes/caregiverRoutes');
 const requireAuth = require('./middleware/authMiddleware');
 const startCronJobs = require('./cronJobs');
 
+// Public Routes (No Token Needed)
 app.use('/api/auth', authRoutes);
-app.use('/api/health', healthRoutes); // Register health routes (status check)
+app.use('/api/health', healthRoutes); // This is now public 🟢
+
+// Protected Routes (Token Required)
 app.use('/api/medications', requireAuth, medicationRoutes);
 app.use('/api/sos', requireAuth, sosRoutes);
 app.use('/api/routines', requireAuth, routineRoutes);
