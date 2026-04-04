@@ -1,6 +1,7 @@
 
 const express = require('express');
 const mongoose = require('mongoose');
+const admin = require('firebase-admin');
 const cors = require('cors');
 const dotenv = require('dotenv');
 
@@ -40,6 +41,23 @@ app.use((req, res, next) => {
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err));
+
+// Initialize Firebase Admin (for SOS & Missed Dose Notifications)
+if (!admin.apps.length) {
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        // Ensure private key handles newlines correctly from Vercel
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      }),
+    });
+    console.log('Firebase Admin Initialized');
+  } catch (err) {
+    console.error('Firebase Admin initialization error:', err);
+  }
+}
 
 // Routes
 app.get('/', (req, res) => {
