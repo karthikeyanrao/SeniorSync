@@ -3,7 +3,12 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const admin = require('firebase-admin');
 
-// Global Health Check Status
+// Simple Ping (No DB Needed)
+router.get('/ping', (req, res) => {
+  res.json({ status: 'Server Alive ⚡', timestamp: new Date().toISOString() });
+});
+
+// Global Health Check Status (Requires DB)
 router.get('/status', async (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'Connected 🟢' : 'Disconnected 🔴';
   const firebaseStatus = admin.apps.length > 0 ? 'Initialized 🟢' : 'Offline 🔴';
