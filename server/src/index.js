@@ -69,8 +69,8 @@ app.get('/', (req, res) => {
 
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
-const healthRoutes = require('./routes/healthRoutes');
 const medicationRoutes = require('./routes/medicationRoutes');
+const healthRoutes = require('./routes/healthRoutes'); // Add this for status check
 const sosRoutes = require('./routes/sosRoutes');
 const routineRoutes = require('./routes/routineRoutes');
 
@@ -79,7 +79,7 @@ const requireAuth = require('./middleware/authMiddleware');
 const startCronJobs = require('./cronJobs');
 
 app.use('/api/auth', authRoutes);
-app.use('/api/health', requireAuth, healthRoutes);
+app.use('/api/health', healthRoutes); // Register health routes (status check)
 app.use('/api/medications', requireAuth, medicationRoutes);
 app.use('/api/sos', requireAuth, sosRoutes);
 app.use('/api/routines', requireAuth, routineRoutes);
@@ -90,10 +90,10 @@ app.get('/api/cron/trigger', async (req, res) => {
   console.log('[CRON-TRIGGER] Manual trigger received...');
   try {
     const { checkMissedAlerts, runMidnightReset, runDataArchival } = require('./cronJobs');
-    
+
     // Run all tasks
     await checkMissedAlerts();
-    
+
     // Run midnight tasks only if triggered around midnight (or just run them anyway for testing)
     const hour = new Date().getHours();
     if (hour === 0) await runMidnightReset();

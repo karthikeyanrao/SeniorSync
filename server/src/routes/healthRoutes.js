@@ -1,40 +1,33 @@
-
 const express = require('express');
 const router = express.Router();
-const Vitals = require('../models/Vitals');
+const mongoose = require('mongoose');
+const admin = require('firebase-admin');
 
-// Add Vitals
-router.post('/vitals', async (req, res) => {
-  const { userId, bloodPressure, heartRate, bloodSugar } = req.body;
+// Global Health Check Status
+router.get('/status', async (req, res) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? 'Connected 🟢' : 'Disconnected 🔴';
+  const firebaseStatus = admin.apps.length > 0 ? 'Initialized 🟢' : 'Offline 🔴';
+  
+  let databaseTest = 'Not tested';
   try {
-    const newVitals = new Vitals({
-      userId,
-      bloodPressure,
-      heartRate,
-      bloodSugar
-    });
-    await newVitals.save();
-    res.status(201).json(newVitals);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to add vitals' });
+    // 🔍 Real-time test: Can we reach the database RIGHT NOW?
+    if (mongoose.connection.readyState === 1) {
+      const db = mongoose.connection.db;
+      const collections = await db.listCollections().toArray();
+      databaseTest = `Success! Found ${collections.length} tables 🟢`;
+    }
+  } catch (err) {
+    databaseTest = `Failed 🔴: ${err.message}`;
   }
-});
 
-// Get Vitals for a User
-router.get('/vitals/:userId', async (req, res) => {
-  try {
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-
-    const history = await Vitals.find({ 
-      userId: req.params.userId,
-      timestamp: { $gte: oneMonthAgo }
-    }).sort({ timestamp: -1 });
-    
-    res.json(history);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch vitals' });
-  }
+  res.json({
+    status: 'Server Active',
+    vercelEnv: process.env.VERCEL ? 'Production 🌐' : 'Development 💻',
+    database: dbStatus,
+    firebase: firebaseStatus,
+    databasePingTest: databaseTest,
+    timestamp: new Date().toISOString()
+  });
 });
 
 module.exports = router;

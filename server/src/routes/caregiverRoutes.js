@@ -8,6 +8,13 @@ const SOS = require('../models/SOS');
 // Get all linked seniors for a caregiver
 router.get('/seniors/:caregiverUid', async (req, res) => {
   try {
+    // 1. Connection Guard: Don't attempt if DB is disconnected
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+      console.error('[DB-GUARD] Database not connected. Current state:', mongoose.connection.readyState);
+      return res.status(503).json({ error: 'Database connecting, please try again in a moment.' });
+    }
+
     const caregiver = await User.findOne({ firebaseUid: req.params.caregiverUid }).lean();
     if (!caregiver) return res.status(404).json({ error: 'Caregiver not found' });
 
