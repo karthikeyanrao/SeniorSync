@@ -44,7 +44,7 @@ router.get('/seniors/:caregiverUid', async (req, res) => {
       });
 
       return {
-        ...senior.toObject(),
+        ...senior,
         activeSOS: activeSOS ? activeSOS.toObject() : null,
         latestVitals: lastVitals ? lastVitals.toObject() : null,
         missedMedications: missedMedications.map(m => m.toObject())

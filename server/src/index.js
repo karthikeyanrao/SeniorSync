@@ -19,8 +19,6 @@ app.use(express.json());
 // 🟢 PUBLIC STATUS CHECK (NO TOKEN NEEDED)
 // This is at the very top to ensure it is always accessible without 401
 app.get('/api/health/ping', (req, res) => res.json({ status: 'Server Active 🟢', timestamp: new Date() }));
-app.use('/api/health', require('./routes/healthRoutes'));
-app.use('/api/auth/sync', require('./routes/authRoutes'));
 
 // Global Rate Limiting (BR-Security)
 const rateLimit = require('express-rate-limit');
