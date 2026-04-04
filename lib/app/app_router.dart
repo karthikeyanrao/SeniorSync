@@ -171,15 +171,29 @@ class _AppRouterState extends State<AppRouter> {
 
     final activeScreens = isCaregiver 
       ? [const CaregiverDashboard(), const ProfileScreen()]
-      : [const SeniorDashboardScreen(), const MedicationScreen(), const HealthScreen(), const SOSScreen(), const RoutineScreen(), const WellnessScreen(), const ProfileScreen()];
+      : [
+          SeniorDashboardScreen(onTabChange: (i) => setState(() => index = i)), 
+          SOSScreen(onBack: () => setState(() => index = 0)),
+          MedicationScreen(onBack: () => setState(() => index = 0)),
+          HealthScreen(onBack: () => setState(() => index = 0)), 
+          RoutineScreen(onBack: () => setState(() => index = 0)), 
+        ];
 
     // Ensure index doesn't go out of bounds when switching roles
     if (index >= activeScreens.length) {
       index = 0;
     }
 
-    return Scaffold(
-      body: activeScreens[index],
+    return PopScope(
+      canPop: index == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (index != 0) {
+          setState(() => index = 0);
+        }
+      },
+      child: Scaffold(
+        body: activeScreens[index],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
@@ -194,7 +208,7 @@ class _AppRouterState extends State<AppRouter> {
             height: 80,
             backgroundColor: Colors.white,
             indicatorColor: SeniorStyles.primaryBlue.withOpacity(0.1),
-            selectedIndex: index,
+            selectedIndex: isCaregiver ? index : (index > 2 ? 0 : index),
             onDestinationSelected: (i) => setState(() => index = i),
             destinations: isCaregiver
               ? const [
@@ -203,8 +217,6 @@ class _AppRouterState extends State<AppRouter> {
                 ]
               : const [
                   NavigationDestination(icon: Icon(Icons.dashboard_rounded, size: 30), label: "Home"),
-                  NavigationDestination(icon: Icon(Icons.medication, size: 30), label: "Meds"),
-                  NavigationDestination(icon: Icon(Icons.favorite, size: 30), label: "Health"),
                   NavigationDestination(
                     icon: CircleAvatar(
                       backgroundColor: SeniorStyles.alertRed,
@@ -213,13 +225,12 @@ class _AppRouterState extends State<AppRouter> {
                     ),
                     label: "SOS",
                   ),
-                  NavigationDestination(icon: Icon(Icons.task_alt, size: 30), label: "Daily"),
-                  NavigationDestination(icon: Icon(Icons.spa_outlined, size: 30), label: "Wellness"),
-                  NavigationDestination(icon: Icon(Icons.person, size: 30), label: "Profile"),
+                  NavigationDestination(icon: Icon(Icons.medication, size: 30), label: "Meds"),
                 ],
           ),
         ),
       ),
+    ),
     );
   }
 }

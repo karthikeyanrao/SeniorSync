@@ -10,7 +10,8 @@ import 'package:seniorsync/frontend/modules/sos/sos_history_screen.dart';
 import 'package:seniorsync/frontend/modules/sos/emergency_contacts_screen.dart';
 
 class SOSScreen extends StatefulWidget {
-  const SOSScreen({super.key});
+  final VoidCallback? onBack;
+  const SOSScreen({super.key, this.onBack});
 
   @override
   State<SOSScreen> createState() => _SOSScreenState();
@@ -109,6 +110,7 @@ class _SOSScreenState extends State<SOSScreen> with SingleTickerProviderStateMix
     return Scaffold(
       backgroundColor: SeniorStyles.backgroundGray,
       appBar: AppBar(
+        leading: widget.onBack != null ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: widget.onBack) : null,
         elevation: 0,
         backgroundColor: Colors.white,
         title: const Text("Emergency SOS", style: SeniorStyles.header),

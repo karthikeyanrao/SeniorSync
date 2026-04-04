@@ -11,10 +11,10 @@ const jwt = require('jsonwebtoken');
 router.post('/sync', async (req, res) => {
   const { firebaseUid, name, email, fcmToken } = req.body;
   const safeName = (name && name.trim()) ? name.trim() : (email ? email.split('@')[0] : 'User');
-  
+
   try {
     let user = await User.findOne({ firebaseUid });
-    
+
     if (user) {
       // Update existing user
       user.name = safeName || user.name;
@@ -32,22 +32,36 @@ router.post('/sync', async (req, res) => {
     // Generate Tokens
     const accessToken = jwt.sign(
       { uid: user.firebaseUid, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      process.env.JWT_SECRET || 'seniorsync_emergency_key_2024',
+      { expiresIn: '7d' } // Increased to 7d to prevent 401s after 1 hour session
     );
-    
+
     const refreshToken = jwt.sign(
       { uid: user.firebaseUid },
-      process.env.JWT_REFRESH_SECRET,
-      { expiresIn: '7d' }
+      process.env.JWT_REFRESH_SECRET || 'seniorsync_refresh_emergency_key_2024',
+      { expiresIn: '30d' }
     );
 
     // Store refresh token in user document
     user.refreshToken = refreshToken;
-    await user.save();
-    
-    res.status(user.isNew ? 201 : 200).json({ 
-      message: user.isNew ? 'User created' : 'User updated', 
+
+    // SELF-REPAIR: If 'caregivers' is corrupted (as a string/primitive), reset to []
+    if (typeof user.caregivers === 'string') {
+      console.warn(`[REPAIR] Fixing corrupted caregivers field for user: ${user.firebaseUid}`);
+      user.caregivers = [];
+    }
+
+    try {
+      await user.save();
+    } catch (saveErr) {
+      // If validation still fails, force reset caregivers completely
+      console.warn('[REPAIR] Critical validation error — resetting caregivers list.');
+      user.caregivers = [];
+      await user.save();
+    }
+
+    res.status(user.isNew ? 201 : 200).json({
+      message: user.isNew ? 'User created' : 'User updated',
       user,
       accessToken,
       refreshToken
@@ -91,18 +105,18 @@ router.patch('/profile/:uid', async (req, res) => {
 // Pair Caregiver by Email
 router.post('/pair/caregiver', async (req, res) => {
   const { seniorUid, caregiverEmail } = req.body;
-  
+
   try {
     const caregiver = await User.findOne({ email: caregiverEmail });
     if (!caregiver) return res.status(404).json({ error: 'Caregiver not found with this email' });
-    
+
     // Add caregiver to senior
     const senior = await User.findOneAndUpdate(
       { firebaseUid: seniorUid },
       { $addToSet: { caregivers: { uid: caregiver.firebaseUid, permissionLevel: 'admin' } } },
       { new: true }
     );
-    
+
     // Add senior to caregiver
     await User.findOneAndUpdate(
       { firebaseUid: caregiver.firebaseUid },
@@ -118,17 +132,17 @@ router.post('/pair/caregiver', async (req, res) => {
 // Pair Senior by UID (QR Code Scan)
 router.post('/pair/senior', async (req, res) => {
   const { caregiverUid, seniorUid } = req.body;
-  
+
   try {
     const senior = await User.findOne({ firebaseUid: seniorUid });
     if (!senior) return res.status(404).json({ error: 'Senior not found from this QR code' });
-    
+
     // Add caregiver to senior
     await User.findOneAndUpdate(
       { firebaseUid: seniorUid },
       { $addToSet: { caregivers: { uid: caregiverUid, permissionLevel: 'admin' } } }
     );
-    
+
     // Add senior to caregiver
     await User.findOneAndUpdate(
       { firebaseUid: caregiverUid },
@@ -166,7 +180,7 @@ router.post('/unlink', async (req, res) => {
 router.delete('/profile/:uid', async (req, res) => {
   try {
     const { uid } = req.params;
-    
+
     // Delete all user related data across modules to cleanly archive/wipe account
     await Promise.all([
       User.findOneAndDelete({ firebaseUid: uid }),

@@ -7,10 +7,13 @@ import 'package:seniorsync/backend/modules/health/vitals_model.dart';
 import 'package:seniorsync/backend/modules/routine/routine_model.dart';
 import 'package:seniorsync/backend/modules/routine/routine_service.dart';
 import 'package:seniorsync/backend/modules/profile/auth_service.dart';
+import 'package:seniorsync/frontend/modules/profile/profile_screen.dart';
+import 'package:seniorsync/frontend/modules/health/wellness_screen.dart';
 import 'package:seniorsync/frontend/modules/shared/senior_styles.dart';
 
 class SeniorDashboardScreen extends StatefulWidget {
-  const SeniorDashboardScreen({super.key});
+  final Function(int) onTabChange;
+  const SeniorDashboardScreen({super.key, required this.onTabChange});
 
   @override
   State<SeniorDashboardScreen> createState() => _SeniorDashboardScreenState();
@@ -114,6 +117,21 @@ class _SeniorDashboardScreenState extends State<SeniorDashboardScreen> {
               floating: false,
               pinned: true,
               backgroundColor: SeniorStyles.primaryBlue,
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+                      child: const Icon(Icons.person, color: Colors.white)
+                    ),
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
+                    },
+                  ),
+                ),
+              ],
               flexibleSpace: FlexibleSpaceBar(
                 titlePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 title: Text("Hello, $userName", 
@@ -133,36 +151,54 @@ class _SeniorDashboardScreenState extends State<SeniorDashboardScreen> {
               padding: const EdgeInsets.all(20),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  Text(_greeting, style: SeniorStyles.subheader),
-                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(_greeting, style: SeniorStyles.header.copyWith(fontSize: 26)),
+                          const Text("Here's how you're doing today", style: TextStyle(color: Colors.black45, fontSize: 14)),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: Colors.amber.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                        child: const Icon(Icons.wb_sunny_rounded, color: Colors.amber, size: 28),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
                   
                   // Summary Card
                   _buildSummaryCard(),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 32),
 
                   // Medication Row
-                  _buildSectionHeader("Medications Today", Icons.medication, () {
-                    // Navigate to Meds tab
-                  }),
+                  _buildSectionHeader("Medications Today", Icons.medication, () => widget.onTabChange(2)),
                   const SizedBox(height: 12),
-                  _buildMedicationSummary(),
-                  const SizedBox(height: 30),
+                  _buildTappableWrapper(2, _buildMedicationSummary()),
+                  const SizedBox(height: 32),
 
                   // Health Row
-                  _buildSectionHeader("Latest Vitals", Icons.favorite, () {
-                    // Navigate to Health tab
-                  }),
+                  _buildSectionHeader("Latest Vitals", Icons.favorite, () => widget.onTabChange(3)),
                   const SizedBox(height: 12),
-                  _buildVitalsCard(),
-                  const SizedBox(height: 30),
+                  _buildTappableWrapper(3, _buildVitalsCard()),
+                  const SizedBox(height: 32),
 
                   // Routine Row
-                  _buildSectionHeader("Daily Routine", Icons.task_alt, () {
-                    // Navigate to Routine tab
+                  _buildSectionHeader("Daily Routine", Icons.task_alt, () => widget.onTabChange(4)),
+                  const SizedBox(height: 12),
+                  _buildTappableWrapper(4, _buildRoutineSummary()),
+                  const SizedBox(height: 32),
+
+                  // Wellness Hub (New)
+                  _buildSectionHeader("Wellness & Habits", Icons.spa_outlined, () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const WellnessScreen()));
                   }),
                   const SizedBox(height: 12),
-                  _buildRoutineSummary(),
-                  const SizedBox(height: 100),
+                  _buildWellnessBanner(),
+                  const SizedBox(height: 120),
                 ]),
               ),
             ),
@@ -327,6 +363,48 @@ class _SeniorDashboardScreenState extends State<SeniorDashboardScreen> {
           ),
           Text(nextTask.time.format(context), style: const TextStyle(color: SeniorStyles.primaryBlue, fontWeight: FontWeight.bold)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTappableWrapper(int newIndex, Widget child) {
+    return InkWell(
+      onTap: () => widget.onTabChange(newIndex),
+      borderRadius: BorderRadius.circular(20),
+      child: child,
+    );
+  }
+
+  Widget _buildWellnessBanner() {
+    return InkWell(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WellnessScreen())),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.teal.shade400, Colors.teal.shade700],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [BoxShadow(color: Colors.teal.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.spa, color: Colors.white, size: 40),
+            SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Wellness Hub", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                  Text("Explore healthy habits & tips", style: TextStyle(color: Colors.white70, fontSize: 14)),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
+          ],
+        ),
       ),
     );
   }

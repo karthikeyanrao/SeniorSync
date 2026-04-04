@@ -42,6 +42,7 @@ class Medication {
       ),
       notes: data['notes'],
       status: MedicationStatus.values.firstWhere(
+        (e) => e.name == (data['status'] ?? 'scheduled'),
         orElse: () => MedicationStatus.scheduled,
       ),
       skippedReason: data['skippedReason'],

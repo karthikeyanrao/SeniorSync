@@ -23,7 +23,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 /// Centralized API client with timeouts, error handling, and logging.
 class ApiClient {
-  static const Duration _timeout = Duration(seconds: 5); // Shorter timeout to fall back to cache quickly
+  static const Duration _timeout = Duration(seconds: 12); // Longer timeout to prevent Vercel cold boot errors
   static late Box _cacheBox;
   static late Box _queueBox;
   static bool _isSyncing = false;
@@ -178,6 +178,7 @@ class ApiClient {
         // Stop sync on first network error to maintain order
         print('[API/SYNC] Sync aborted due to network failure: $e');
         break;
+      }
     }
     _isSyncing = false;
     print('[API/SYNC] Background sync process completed.');

@@ -9,7 +9,8 @@ import 'package:seniorsync/backend/modules/profile/auth_service.dart';
 import 'package:seniorsync/frontend/modules/shared/senior_styles.dart';
 
 class HealthScreen extends StatefulWidget {
-  const HealthScreen({super.key});
+  final VoidCallback? onBack;
+  const HealthScreen({super.key, this.onBack});
 
   @override
   State<HealthScreen> createState() => _HealthScreenState();
@@ -49,6 +50,7 @@ class _HealthScreenState extends State<HealthScreen> {
     return Scaffold(
       backgroundColor: SeniorStyles.backgroundGray,
       appBar: AppBar(
+        leading: widget.onBack != null ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: widget.onBack) : null,
         elevation: 0,
         backgroundColor: Colors.white,
         title: const Text("My Health", style: SeniorStyles.header),

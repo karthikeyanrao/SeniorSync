@@ -9,7 +9,8 @@ import 'add_medication_screen.dart';
 import 'package:seniorsync/backend/modules/shared/notification_service.dart';
 
 class MedicationScreen extends StatefulWidget {
-  const MedicationScreen({super.key});
+  final VoidCallback? onBack;
+  const MedicationScreen({super.key, this.onBack});
 
   @override
   State<MedicationScreen> createState() => _MedicationScreenState();
@@ -148,20 +149,23 @@ class _MedicationScreenState extends State<MedicationScreen> with SingleTickerPr
     return Scaffold(
       backgroundColor: SeniorStyles.backgroundGray,
       appBar: AppBar(
-        elevation: 0,
+        leading: widget.onBack != null ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: widget.onBack) : null,
         backgroundColor: Colors.white,
-        title: const Text("My Medicines", style: SeniorStyles.header),
+        title: const Text("Medication Plan", style: SeniorStyles.header),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: SeniorStyles.primaryBlue,
-          unselectedLabelColor: Colors.black38,
-          indicatorColor: SeniorStyles.primaryBlue,
-          indicatorWeight: 4,
-          labelStyle: SeniorStyles.subheader,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.black54,
+          indicatorSize: TabBarIndicatorSize.tab,
+          indicator: BoxDecoration(
+            borderRadius: BorderRadius.circular(25),
+            color: SeniorStyles.primaryBlue,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           tabs: const [
-            Tab(text: "Tasks"),
-            Tab(text: "History"),
-            Tab(text: "List"),
+            Tab(child: Text("Tasks", style: TextStyle(fontWeight: FontWeight.bold))),
+            Tab(child: Text("History", style: TextStyle(fontWeight: FontWeight.bold))),
+            Tab(child: Text("All Meds", style: TextStyle(fontWeight: FontWeight.bold))),
           ],
         ),
       ),
@@ -251,17 +255,28 @@ class _MedicationScreenState extends State<MedicationScreen> with SingleTickerPr
       itemCount: history.length,
       itemBuilder: (context, index) {
         final m = history[index];
-        return Card(
+        final isTaken = m.status == MedicationStatus.taken;
+        return Container(
           margin: const EdgeInsets.only(bottom: 12),
+          decoration: SeniorStyles.cardDecoration,
           child: ListTile(
-            leading: Icon(
-              m.status == MedicationStatus.taken ? Icons.check_circle : Icons.cancel,
-              color: m.status == MedicationStatus.taken ? SeniorStyles.successGreen : SeniorStyles.alertRed,
-              size: 32,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            leading: Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: (isTaken ? SeniorStyles.successGreen : SeniorStyles.alertRed).withOpacity(0.1), shape: BoxShape.circle),
+                  child: Icon(
+                    m.medicineType == 'Syrup' ? Icons.water_drop : Icons.medication_rounded,
+                    color: isTaken ? SeniorStyles.successGreen : SeniorStyles.alertRed
+                  ),
+                ),
+                Icon(isTaken ? Icons.check_circle : Icons.cancel, color: isTaken ? Colors.green : Colors.red, size: 18),
+              ],
             ),
             title: Text(m.name, style: SeniorStyles.cardTitle),
-            subtitle: Text("${m.dosage} • ${m.status.name.toUpperCase()}"),
-            // No revert option for history doses
+            subtitle: Text("${m.dosage} • ${isTaken ? 'Taken at' : 'Missed'}${isTaken ?' ' + m.timeOfDay.format(context) : ''}"),
           ),
         );
       },
@@ -269,25 +284,39 @@ class _MedicationScreenState extends State<MedicationScreen> with SingleTickerPr
   }
 
   Widget _buildManageTab() {
+    if (_medications.isEmpty) return _buildEmptyState("Your cabinet is empty", "Add your first medicine using the + button.");
+
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: _medications.length,
       itemBuilder: (context, index) {
         final m = _medications[index];
-        return Card(
+        return Container(
           margin: const EdgeInsets.only(bottom: 12),
+          decoration: SeniorStyles.cardDecoration,
           child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            leading: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: SeniorStyles.primaryBlue.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+              child: Icon(
+                m.medicineType == 'Syrup' ? Icons.water_drop : Icons.medication_rounded,
+                color: SeniorStyles.primaryBlue
+              ),
+            ),
             title: Text(m.name, style: SeniorStyles.cardTitle),
-            subtitle: Text("${m.dosage} at ${m.timeOfDay.format(context)}"),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: SeniorStyles.alertRed),
-                  onPressed: () => _deleteMedication(m),
-                ),
-                const Icon(Icons.chevron_right),
+                const SizedBox(height: 4),
+                Text("${m.dosage} • ${m.timeOfDay.format(context)}", style: const TextStyle(color: Colors.black54)),
+                if (m.foodTiming != null) 
+                  Text(m.foodTiming!, style: const TextStyle(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.bold)),
               ],
+            ),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete_outline, color: SeniorStyles.alertRed),
+              onPressed: () => _deleteMedication(m),
             ),
             onTap: () async {
               final success = await Navigator.push(context, MaterialPageRoute(builder: (_) => AddMedicationScreen(initialMedication: m)));
@@ -322,87 +351,164 @@ class _SeniorMedCard extends StatelessWidget {
 
   const _SeniorMedCard({required this.medication, required this.onTaken, required this.onSkipped, required this.onSnooze});
 
+  Color _getTimeColor() {
+    final hour = medication.timeOfDay.hour;
+    if (hour >= 5 && hour < 12) return Colors.orange.shade300; // Morning
+    if (hour >= 12 && hour < 17) return Colors.blue.shade400; // Afternoon
+    if (hour >= 17 && hour < 21) return Colors.deepOrange.shade400; // Evening
+    return Colors.indigo.shade400; // Night
+  }
+
+  IconData _getTimeIcon() {
+    final hour = medication.timeOfDay.hour;
+    if (hour >= 5 && hour < 12) return Icons.wb_sunny_rounded;
+    if (hour >= 12 && hour < 17) return Icons.light_mode_rounded;
+    if (hour >= 17 && hour < 21) return Icons.wb_twilight_rounded;
+    return Icons.bedtime_rounded;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final timeColor = _getTimeColor();
+    
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: SeniorStyles.cardDecoration,
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))],
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
+          // Header section
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: timeColor.withOpacity(0.1),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Row(
+              children: [
+                Icon(_getTimeIcon(), color: timeColor, size: 24),
+                const SizedBox(width: 10),
+                Text(medication.timeOfDay.format(context), style: TextStyle(color: timeColor, fontWeight: FontWeight.bold, fontSize: 18)),
+                const Spacer(),
+                if (medication.foodTiming != null && medication.foodTiming != 'None')
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                    child: Text(medication.foodTiming!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black54)),
+                  ),
+              ],
+            ),
+          ),
+          
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(medication.name, style: SeniorStyles.cardTitle),
-                    Text(medication.dosage, style: SeniorStyles.cardSubtitle),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: SeniorStyles.primaryBlue.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
+                      child: Icon(
+                        medication.medicineType == 'Syrup' ? Icons.water_drop : Icons.medication_rounded,
+                        color: SeniorStyles.primaryBlue, size: 32
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(medication.name, style: SeniorStyles.header.copyWith(fontSize: 20)),
+                          const SizedBox(height: 4),
+                          Text(medication.dosage, style: const TextStyle(color: Colors.black54, fontSize: 16, fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: SeniorStyles.primaryBlue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  medication.timeOfDay.format(context),
-                  style: const TextStyle(color: SeniorStyles.primaryBlue, fontWeight: FontWeight.bold, fontSize: 18),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: onTaken,
-                  icon: const Icon(Icons.check, size: 28),
-                  label: const Text("I TOOK IT", style: SeniorStyles.largeButtonText),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: SeniorStyles.successGreen,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                
+                if (medication.notes != null && medication.notes!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: SeniorStyles.backgroundGray, borderRadius: BorderRadius.circular(12)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, size: 16, color: Colors.black45),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(medication.notes!, style: const TextStyle(color: Colors.black54, fontSize: 13))),
+                      ],
+                    ),
                   ),
+                ],
+                
+                const SizedBox(height: 24),
+                
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: onTaken,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: SeniorStyles.successGreen,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 0,
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.check_circle_outline),
+                            SizedBox(width: 8),
+                            Text("DONE", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    _IconButton(icon: Icons.snooze, color: SeniorStyles.warningOrange, onTap: onSnooze),
+                    const SizedBox(width: 12),
+                    _IconButton(icon: Icons.close, color: SeniorStyles.alertRed, onTap: onSkipped),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onSkipped,
-                  icon: const Icon(Icons.close, size: 24),
-                  label: const Text("SKIP", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: SeniorStyles.alertRed, width: 2),
-                    foregroundColor: SeniorStyles.alertRed,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onSnooze,
-                  icon: const Icon(Icons.snooze, size: 24),
-                  label: const Text("SNOOZE", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: SeniorStyles.warningOrange, width: 2),
-                    foregroundColor: SeniorStyles.warningOrange,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _IconButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _IconButton({required this.icon, required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Icon(icon, color: color, size: 24),
       ),
     );
   }

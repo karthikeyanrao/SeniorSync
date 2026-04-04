@@ -1,5 +1,5 @@
 
 class AppConstants {
-  // Production backend deployed on Render
-  static const String baseUrl = "https://seniorsync.onrender.com/api";
+  // Production backend deployed on vercel
+  static const String baseUrl = "https://seniorsync-backend.vercel.app/api";
 }

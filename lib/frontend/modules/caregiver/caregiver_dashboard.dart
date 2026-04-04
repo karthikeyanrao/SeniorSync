@@ -39,11 +39,11 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
       // Shorten polling to 30 seconds for better responsiveness
       _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) => _pollBackground());
       
-      // Real-time listener for SOS alerts
+      // Real-time listener: refresh UI silently when push arrives
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         if (message.data['type'] == 'SOS_ALERT' || message.data['type'] == 'MISSED_MED') {
-          print('[CaregiverDashboard] Real-time SOS alert received — refreshing...');
-          _loadSeniors();
+          print('[CaregiverDashboard] Live Notification Received — Silent Refresh...');
+          _pollBackground(); // Refresh data without showing global loading spinner
         }
       });
     }

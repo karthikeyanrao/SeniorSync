@@ -233,7 +233,7 @@ class AuthService extends ChangeNotifier {
                 : (user.email?.split('@').first ?? 'User'),
             'fcmToken': fcmToken,
           }),
-        ).timeout(const Duration(seconds: 4));
+        ).timeout(const Duration(seconds: 15));
         print('[AuthService] Sync response: ${response.statusCode}');
         if (response.statusCode == 200 || response.statusCode == 201) {
           final data = json.decode(response.body);

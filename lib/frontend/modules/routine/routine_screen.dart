@@ -8,7 +8,8 @@ import 'package:seniorsync/frontend/modules/shared/senior_styles.dart';
 import 'package:seniorsync/backend/modules/shared/notification_service.dart';
 
 class RoutineScreen extends StatefulWidget {
-  const RoutineScreen({super.key});
+  final VoidCallback? onBack;
+  const RoutineScreen({super.key, this.onBack});
 
   @override
   State<RoutineScreen> createState() => _RoutineScreenState();
@@ -213,6 +214,7 @@ class _RoutineScreenState extends State<RoutineScreen> with SingleTickerProvider
     return Scaffold(
       backgroundColor: SeniorStyles.backgroundGray,
       appBar: AppBar(
+        leading: widget.onBack != null ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: widget.onBack) : null,
         elevation: 0,
         backgroundColor: Colors.white,
         title: const Text("Daily Routine", style: SeniorStyles.header),
