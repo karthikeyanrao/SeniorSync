@@ -21,17 +21,23 @@ router.post('/trigger', async (req, res) => {
     try {
       const senior = await User.findOne({ firebaseUid: userId });
       if (senior && senior.caregivers && senior.caregivers.length > 0) {
-        const caregivers = await User.find({ firebaseUid: { $in: senior.caregivers }, fcmToken: { $exists: true, $ne: null } });
+        const caregiverUids = senior.caregivers.map(c => c.uid);
+        const caregivers = await User.find({ firebaseUid: { $in: caregiverUids }, fcmToken: { $exists: true, $ne: null } });
         
+        const lat = location?.latitude;
+        const lon = location?.longitude;
+        const mapUrl = (lat && lon) ? `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=18/${lat}/${lon}` : 'Location unknown';
+
         for (const caregiver of caregivers) {
           await admin.messaging().send({
             notification: { 
               title: 'EMERGENCY SOS Triggered! 🚨', 
-              body: `${senior.name} has just triggered an SOS alert from their device!` 
+              body: `${senior.name} triggered an SOS! View location: ${mapUrl}` 
             },
             data: { 
               type: 'SOS_ALERT', 
-              seniorUid: userId 
+              seniorUid: userId,
+              locationUrl: mapUrl
             },
             android: { priority: 'high' },
             token: caregiver.fcmToken,

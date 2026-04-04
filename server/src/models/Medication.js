@@ -27,6 +27,8 @@ const medicationSchema = new mongoose.Schema({
   },
   foodTiming: String,
   medicineType: String,
+  skippedReason: String,
+  notificationSound: String,
   lastUpdated: {
     type: Date,
     default: Date.now,

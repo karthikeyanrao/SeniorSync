@@ -60,9 +60,32 @@ app.use('/api/sos', requireAuth, sosRoutes);
 app.use('/api/routines', requireAuth, routineRoutes);
 app.use('/api/caregivers', requireAuth, caregiverRoutes);
 
-// Start cron background workers
-startCronJobs();
+// Vercel Cron Trigger Endpoint (SEC: Protected by a simple secret if desired)
+app.get('/api/cron/trigger', async (req, res) => {
+  console.log('[CRON-TRIGGER] Manual trigger received...');
+  try {
+    const { checkMissedAlerts, runMidnightReset, runDataArchival } = require('./cronJobs');
+    
+    // Run all tasks
+    await checkMissedAlerts();
+    
+    // Run midnight tasks only if triggered around midnight (or just run them anyway for testing)
+    const hour = new Date().getHours();
+    if (hour === 0) await runMidnightReset();
+    if (hour === 2) await runDataArchival();
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on 0.0.0.0:${PORT}`);
+    res.json({ status: 'Cron tasks executed successfully' });
+  } catch (err) {
+    console.error('[CRON-TRIGGER] Error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
+
+// Module Exports (for Vercel)
+module.exports = app;
+
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running locally on 0.0.0.0:${PORT}`);
+  });
+}

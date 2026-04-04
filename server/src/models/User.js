@@ -38,7 +38,11 @@ const userSchema = new mongoose.Schema({
     sparse: true,
     unique: true,
   },
-  caregivers: [String], // Array of caregiver firebaseUids
+  pairingCodeExpires: Date,
+  caregivers: [{ 
+    uid: String, 
+    permissionLevel: { type: String, enum: ['admin', 'viewer'], default: 'admin' } 
+  }], // Array of caregiver objects
   linkedSeniors: [String], // Array of senior firebaseUids
   refreshToken: {
     type: String,

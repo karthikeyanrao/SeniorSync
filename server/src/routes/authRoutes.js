@@ -99,7 +99,7 @@ router.post('/pair/caregiver', async (req, res) => {
     // Add caregiver to senior
     const senior = await User.findOneAndUpdate(
       { firebaseUid: seniorUid },
-      { $addToSet: { caregivers: caregiver.firebaseUid } },
+      { $addToSet: { caregivers: { uid: caregiver.firebaseUid, permissionLevel: 'admin' } } },
       { new: true }
     );
     
@@ -126,7 +126,7 @@ router.post('/pair/senior', async (req, res) => {
     // Add caregiver to senior
     await User.findOneAndUpdate(
       { firebaseUid: seniorUid },
-      { $addToSet: { caregivers: caregiverUid } }
+      { $addToSet: { caregivers: { uid: caregiverUid, permissionLevel: 'admin' } } }
     );
     
     // Add senior to caregiver
@@ -137,6 +137,26 @@ router.post('/pair/senior', async (req, res) => {
     );
 
     res.json({ message: 'Senior linked successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Unlink Caregiver (SEC-04)
+router.post('/unlink', async (req, res) => {
+  const { seniorUid, caregiverUid } = req.body;
+  try {
+    // Remove caregiver from senior
+    await User.findOneAndUpdate(
+      { firebaseUid: seniorUid },
+      { $pull: { caregivers: { uid: caregiverUid } } }
+    );
+    // Remove senior from caregiver
+    await User.findOneAndUpdate(
+      { firebaseUid: caregiverUid },
+      { $pull: { linkedSeniors: seniorUid } }
+    );
+    res.json({ message: 'Caregiver unlinked successfully' });
   } catch (error) {
     res.status(500).json({ error: 'Internal Server Error' });
   }
@@ -158,8 +178,57 @@ router.delete('/profile/:uid', async (req, res) => {
 
     res.json({ success: true, message: 'Account and all related user data completely erased.' });
   } catch (err) {
-    console.error('Archive Error:', err);
     res.status(500).json({ error: 'Server error wiping account data' });
+  }
+});
+
+// Generate Pairing Code (DASH-03)
+router.post('/pair/generate', async (req, res) => {
+  const { seniorUid } = req.body;
+  try {
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const expires = new Date();
+    expires.setHours(expires.getHours() + 24);
+
+    await User.findOneAndUpdate(
+      { firebaseUid: seniorUid },
+      { $set: { pairingCode: code, pairingCodeExpires: expires } }
+    );
+    res.json({ code, expires });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Pair by Code (DASH-03)
+router.post('/pair/code', async (req, res) => {
+  const { caregiverUid, code } = req.body;
+  try {
+    const senior = await User.findOne({ pairingCode: code });
+    if (!senior) return res.status(404).json({ error: 'Invalid pairing code' });
+
+    if (senior.pairingCodeExpires && senior.pairingCodeExpires < new Date()) {
+      return res.status(400).json({ error: 'Pairing code has expired' });
+    }
+
+    // Link them
+    await User.findOneAndUpdate(
+      { firebaseUid: senior.firebaseUid },
+      { $addToSet: { caregivers: { uid: caregiverUid, permissionLevel: 'admin' } } }
+    );
+    await User.findOneAndUpdate(
+      { firebaseUid: caregiverUid },
+      { $addToSet: { linkedSeniors: senior.firebaseUid } }
+    );
+
+    // Clear code after use
+    senior.pairingCode = null;
+    senior.pairingCodeExpires = null;
+    await senior.save();
+
+    res.json({ message: 'Linked successfully via code', seniorUid: senior.firebaseUid });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
