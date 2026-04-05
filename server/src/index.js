@@ -180,5 +180,7 @@ module.exports = app;
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running locally on 0.0.0.0:${PORT}`);
+    const { startCronJobs } = require('./cronJobs');
+    startCronJobs();
   });
 }

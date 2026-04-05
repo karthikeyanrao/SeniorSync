@@ -27,7 +27,7 @@ router.post('/sync', async (req, res) => {
 
     if (user) {
       // Update existing user
-      user.name = safeName || user.name;
+      user.name = (user.name && user.name.trim() && user.name !== 'User') ? user.name : safeName;
       if (fcmToken) user.fcmToken = fcmToken;
       if (timezoneOffsetMinutes !== undefined && timezoneOffsetMinutes !== null && Number.isFinite(Number(timezoneOffsetMinutes))) {
         user.timezoneOffsetMinutes = Number(timezoneOffsetMinutes);
